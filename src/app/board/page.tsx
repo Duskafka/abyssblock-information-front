@@ -5,13 +5,13 @@ import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { z } from 'zod';
 
 const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// 🛠️ 마크다운 태그들을 다크 테마에 어울리는 순수 Tailwind 스타일로 100% 매핑하는 컴포넌트 객체
 const markdownComponents = {
     h1: ({ ...props }) => <h1 className="text-xl font-bold text-amber-400 mt-4 mb-2 border-b border-slate-800 pb-1" {...props} />,
     h2: ({ ...props }) => <h2 className="text-lg font-bold text-amber-400 mt-3 mb-1.5" {...props} />,
@@ -25,6 +25,15 @@ const markdownComponents = {
     code: ({ ...props }) => <code className="bg-slate-800 text-amber-300 px-1.5 py-0.5 rounded font-mono text-[11px]" {...props} />,
     blockquote: ({ ...props }) => <blockquote className="border-l-4 border-slate-600 pl-3 italic text-slate-400 my-2" {...props} />,
 };
+
+// 폼 데이터 검증을 위한 Zod 스키마
+const postSchema = z.object({
+    title: z.string()
+        .min(2, { message: "제목은 최소 2글자 이상이어야 합니다." })
+        .max(50, { message: "제목은 50자를 초과할 수 없습니다." }),
+    content: z.string()
+        .min(5, { message: "공략 내용은 최소 5글자 이상 작성해주세요." }),
+});
 
 function CustomRelicSelect({
                                label,
@@ -87,7 +96,7 @@ function CustomRelicSelect({
                             onClick={() => { onChange(r.id); setIsOpen(false); }}
                             className={`w-full px-3 py-2.5 text-left hover:bg-slate-800 flex items-center gap-2 transition text-xs ${selectedValue === r.id ? 'bg-amber-500/10 text-amber-400' : 'text-slate-300'}`}
                         >
-                            <img src={r.image_url} alt="" className="w-4 h-4 object-contain" />
+                            <img src={r.id ? relics.find(relic => relic.id === r.id).image_url : ''} alt="" className="w-4 h-4 object-contain" />
                             <span>{r.korean_name}</span>
                         </button>
                     ))}
@@ -114,7 +123,6 @@ export default function BoardPage() {
     const [main3, setMain3] = useState('');
     const [selectedSides, setSelectedSides] = useState<string[]>([]);
 
-    // 📝 에디터 탭 상태 관리 ('write' = 에디터 작성, 'preview' = 마크다운 미리보기)
     const [activeTab, setActiveTab] = useState<'write' | 'preview'>('write');
 
     useEffect(() => {
@@ -163,13 +171,28 @@ export default function BoardPage() {
         }
     };
 
+    // 🌟 엣지 펑션 없이 프론트 단에서 밸리데이션 + 비속어 컷 한 뒤 직접 집어넣는 로직
     const handlePostSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user) return alert('로그인이 필요합니다.');
 
+        // 1. Zod 글자 수 / 형식 검증
+        const validationResult = postSchema.safeParse({ title, content });
+        if (!validationResult.success) {
+            alert(validationResult.error.message);
+            return;
+        }
+
+        // 2. 비속어 필터링 검증
+        if (checkProfanity(title) || checkProfanity(content)) {
+            alert('제목이나 내용에 제한된 표현(비속어)이 포함되어 있습니다. 올바른 유물 공략 문화를 만들어주세요!');
+            return;
+        }
+
         try {
             const displayName = user.user_metadata?.display_name || user.email?.split('@')[0];
 
+            // 3. 모든 관문을 통과했으므로 웹 Supabase DB로 직접 인서트 (RLS가 유저 세션 알아서 대조 검증함)
             const { error } = await supabase.from('posts').insert([
                 {
                     user_id: user.id,
@@ -233,7 +256,6 @@ export default function BoardPage() {
                     </button>
                 </div>
 
-                {/* 📋 피드 리스트 출력 영역 */}
                 {loading ? (
                     <div className="text-center py-20 text-slate-500 bg-[#161d2a] rounded-2xl border border-slate-800">공략 대장을 불러오는 중...</div>
                 ) : posts.length === 0 ? (
@@ -247,7 +269,6 @@ export default function BoardPage() {
                                     <p className="text-xs text-slate-400 mt-1">👤 {post.author_name} &nbsp;|&nbsp; 🕒 {new Date(post.created_at).toLocaleDateString()}</p>
                                 </div>
 
-                                {/* ✨ 게시글 피드 카드 마크다운 렌더링 (순수 Tailwind 매핑 적용) */}
                                 <div className="bg-[#0f141c] p-5 rounded-xl border border-slate-800 text-xs leading-relaxed text-slate-300">
                                     <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                                         {post.content}
@@ -291,7 +312,6 @@ export default function BoardPage() {
                 )}
             </main>
 
-            {/* 🎭 빌드 공략 작성 스튜디오 모달 */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
                     <div className="bg-[#161d2a] w-full max-w-4xl rounded-2xl border border-slate-800 p-6 space-y-4 shadow-2xl overflow-y-auto max-h-[95vh]">
@@ -302,10 +322,8 @@ export default function BoardPage() {
                         </div>
 
                         <form onSubmit={handlePostSubmit} className="space-y-4 text-xs">
-
                             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
 
-                                {/* 👈 [좌측 열] 인벤토리 세팅장 */}
                                 <div className="md:col-span-5 space-y-4 border-r border-slate-800/60 pr-1 md:pr-4">
                                     <div className="space-y-1.5">
                                         <label className="text-amber-400 font-bold block text-[11px]">🎯 빌드 대상 직업군</label>
@@ -369,7 +387,6 @@ export default function BoardPage() {
                                     </div>
                                 </div>
 
-                                {/* 👉 [우측 열] 실시간 프리뷰 기능이 탑재된 에디터 패널 */}
                                 <div className="md:col-span-7 flex flex-col justify-between space-y-4">
                                     <div className="space-y-3 flex-1 flex flex-col">
                                         <div>
@@ -381,7 +398,6 @@ export default function BoardPage() {
                                             />
                                         </div>
 
-                                        {/* 🔄 상단 에디터 컨트롤 탭 메뉴 */}
                                         <div className="flex-1 flex flex-col min-h-[340px]">
                                             <div className="flex justify-between items-center mb-1">
                                                 <div className="flex bg-[#0f141c] p-1 rounded-xl border border-slate-800 gap-1">
@@ -403,7 +419,6 @@ export default function BoardPage() {
                                                 <span className="text-[10px] text-slate-500"># 대제목 / **굵게** / - 리스트</span>
                                             </div>
 
-                                            {/* 🛠️ 선택된 탭에 따라 에디터 입력창 또는 실시간 마크다운 변환뷰 토글 */}
                                             {activeTab === 'write' ? (
                                                 <textarea
                                                     required value={content} onChange={e => setContent(e.target.value)}
@@ -411,7 +426,6 @@ export default function BoardPage() {
                                                     placeholder="마크다운 문법으로 공략을 작성해보세요!&#10;&#10;### 💡 빌드 핵심 메커니즘&#10;1. **크리티컬 확률** 극대화&#10;2. 상점에서 구입한 유물과 시너지 연계&#10;&#10;- 주의: 보스 광폭화 패턴 전에 스킬 아껴두기!"
                                                 />
                                             ) : (
-                                                /* ✨ [수정 해결책] 실시간 미리보기 컴포넌트에도 커스텀 컴포넌트 매핑 주입 */
                                                 <div className="w-full flex-1 bg-[#0f141c] border border-slate-700 rounded-xl px-4 py-3.5 overflow-y-auto text-xs leading-relaxed text-slate-300">
                                                     {content.trim() === '' ? (
                                                         <span className="text-slate-600 block text-center py-24">작성된 내용이 없어 미리볼 수 없습니다.</span>
@@ -430,13 +444,27 @@ export default function BoardPage() {
                                         <button type="submit" className="w-56 bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold py-2.5 rounded-xl transition shadow-lg text-xs tracking-wider">빌드 공략 등록 완료 🚀</button>
                                     </div>
                                 </div>
-
                             </div>
-
                         </form>
                     </div>
                 </div>
             )}
         </div>
     );
+}
+
+// ==========================================
+// 🛠️ 내장형 한국어 비속어 사정 및 우회 감지 필터 시스템
+// ==========================================
+const KOREAN_BADWORDS = [
+    "개새끼", "새끼", "시발", "씨발", "존나", "좆", "병신", "지랄", "정신병자",
+    "쓰레기", "미친놈", "미친년", "노가다", "ㅅㅂ", "ㅂㅅ", "ㅈㄴ", "ㄲㅈ", "꺼져",
+    "아가리", "닥쳐", "새키", "씌발", "썅", "틀딱", "맘충", "한남", "김치녀"
+];
+
+function checkProfanity(text: string): boolean {
+    if (!text) return false;
+    // 공백 및 특수문자를 제거하여 의도적인 띄어쓰기 욕설 방어 (예: 시   발 -> 시발)
+    const cleanedText = text.replace(/[\s~`!@#$%^&*()_|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, "");
+    return KOREAN_BADWORDS.some(badword => cleanedText.includes(badword));
 }

@@ -84,48 +84,10 @@ export default function MyPage() {
     return (
         <div className="min-h-screen bg-[#0f141c] text-slate-100 font-sans">
 
-            {/* ─── 1. NAVIGATION BAR ─── */}
-            <header className="border-b border-slate-800 bg-[#161d2a]/90 backdrop-blur sticky top-0 z-50 px-6 py-4">
-                <div className="max-w-6xl mx-auto flex justify-between items-center">
-                    <div className="flex items-center gap-8">
-                        <Link href="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
-                            <span className="text-2xl">🌾</span>
-                            <div>
-                                <h1 className="text-xl font-bold text-amber-400 tracking-wide">GOLD CROP</h1>
-                                <p className="text-xs text-slate-400">실시간 황금 작물 시세 현황판</p>
-                            </div>
-                        </Link>
-                        <nav className="hidden md:flex items-center gap-1 text-sm font-medium text-slate-400">
-                            <Link href="/" className="px-4 py-2 rounded-xl hover:text-slate-200 hover:bg-slate-800/30 transition-all">
-                                📈 시세 현황판
-                            </Link>
-                            <Link href="/board" className="px-4 py-2 rounded-xl hover:text-slate-200 hover:bg-slate-800/30 transition-all">
-                                💬 자유게시판
-                            </Link>
-                        </nav>
-                    </div>
-
-                    <nav className="flex items-center gap-4">
-                        {user ? (
-                            <div className="flex items-center gap-3">
-                    <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-md font-medium">
-                      🟢 {user.user_metadata?.display_name || user.email?.split('@')[0]}님
-                    </span>
-                                <button onClick={handleLogout} className="text-xs text-slate-400 hover:text-red-400 transition-colors bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
-                                    로그아웃
-                                </button>
-                            </div>
-                        ) : (
-                            <Link href="/" className="text-xs font-bold bg-amber-400 hover:bg-amber-500 text-slate-900 px-4 py-2 rounded-lg transition-all shadow-lg">
-                                메인으로 가기
-                            </Link>
-                        )}
-                    </nav>
-                </div>
-            </header>
+            {/* 💡 1. NAVIGATION BAR 헤더 영역이 layout.tsx로 이동했으므로 이곳에서는 완전히 삭제되었습니다. */}
 
             {/* ─── 2. MAIN CONTENTS ─── */}
-            <main className="max-w-xl mx-auto px-6 py-16">
+            <main className="max-w-xl mx-auto px-6 py-10"> {/* 여백을 py-16에서 py-10으로 조절했습니다 */}
                 {user ? (
                     <div className="bg-[#161d2a] border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-6">
 

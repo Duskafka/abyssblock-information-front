@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import Link from 'next/link'; // 🚀 Next.js 내비게이션 링크 컴포넌트 추가
 
 const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,16 +16,11 @@ export default function DashboardPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [limit, setLimit] = useState<number>(6);
 
-  // 🔐 오직 로그인 팝업만 관리하는 상태
+  // 🔐 오직 이메일 로그인 팝업만 관리하는 상태 (헤더와 별개로 작동 가능)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
-
-  // 👤 기존 모달 관련 상태는 유지하되, 이번 단계에서는 헤더 버튼을 독립된 Link로 매핑합니다.
-  const [isMyPageOpen, setIsMyPageOpen] = useState(false);
-  const [profileData, setProfileData] = useState<any>(null);
-  const [profileLoading, setProfileLoading] = useState(false);
 
   // 📡 데이터 가져오는 함수 (시세 타임라인)
   const fetchTimelineData = async (currentLimit: number = limit) => {
@@ -60,48 +54,20 @@ export default function DashboardPage() {
     }
   };
 
-  // 👤 Supabase profiles 테이블에서 로그인한 유저의 마인크래프트 정보 가져오기
-  const fetchUserProfile = async (userId: string) => {
-    try {
-      setProfileLoading(true);
-      const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single();
-
-      if (error) throw error;
-      setProfileData(data);
-    } catch (err: any) {
-      console.error('프로필 로드 에러:', err.message);
-    } finally {
-      setProfileLoading(false);
-    }
-  };
-
   useEffect(() => {
     fetchTimelineData(limit);
   }, [limit]);
 
-  // 🔐 Supabase 인증 리스너
+  // 🔐 Supabase 인증 리스너 (로그인 모달이 성공했을 때의 로직 처리용)
   useEffect(() => {
     async function checkUser() {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserProfile(session.user.id);
-      }
     }
     checkUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      if (currentUser) {
-        fetchUserProfile(currentUser.id);
-      } else {
-        setProfileData(null);
-      }
+      setUser(session?.user ?? null);
     });
 
     return () => {
@@ -125,19 +91,11 @@ export default function DashboardPage() {
       setIsModalOpen(false);
       setEmail('');
       setPassword('');
+      window.location.reload(); // 헤더 상태 동기화를 위해 가볍게 새로고침
     } catch (err: any) {
       alert('서버 에러 메시지: ' + err.message);
     } finally {
       setAuthLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) alert('로그아웃 에러: ' + error.message);
-    else {
-      alert('로그아웃 되었습니다.');
-      setIsMyPageOpen(false);
     }
   };
 
@@ -198,78 +156,20 @@ export default function DashboardPage() {
   return (
       <div className="min-h-screen bg-[#0f141c] text-slate-100 font-sans relative">
 
-        {/* ─── 1. NAVIGATION BAR (라우팅 연동 개편) ─── */}
-        <header className="border-b border-slate-800 bg-[#161d2a]/90 backdrop-blur sticky top-0 z-50 px-6 py-4">
-          <div className="max-w-6xl mx-auto flex justify-between items-center">
-
-            {/* 좌측 로고 및 서브 내비게이션 탭 영역 */}
-            <div className="flex items-center gap-8">
-              <Link href="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
-                <span className="text-2xl animate-pulse">🌾</span>
-                <div>
-                  <h1 className="text-xl font-bold text-amber-400 tracking-wide">GOLD CROP</h1>
-                  <p className="text-xs text-slate-400">실시간 황금 작물 시세 현황판</p>
-                </div>
-              </Link>
-
-              {/* 📑 핵심 메뉴 탭 리스트 추가 */}
-              <nav className="hidden md:flex items-center gap-1 text-sm font-medium text-slate-400">
-                <Link href="/" className="px-4 py-2 rounded-xl bg-slate-800/50 text-amber-400 border border-slate-700/50">
-                  📈 시세 현황판
-                </Link>
-                <Link href="/board" className="px-4 py-2 rounded-xl hover:text-slate-200 hover:bg-slate-800/30 transition-all">
-                  💬 자유게시판
-                </Link>
-              </nav>
-            </div>
-
-            {/* 우측 유저 세션 및 유틸리티 영역 */}
-            <nav className="flex items-center gap-4">
-              <button
-                  onClick={() => fetchTimelineData(limit)}
-                  className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors mr-1"
-              >
-                🔄 새로고침
-              </button>
-
-              {user ? (
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-md font-medium">
-                      🟢 {user.user_metadata?.display_name || user.email?.split('@')[0]}님
-                    </span>
-
-                    {/* 🚀 수정 포인트: 모달을 여는 대신 독립된 /mypage URL 주소로 이동시킵니다. */}
-                    <Link
-                        href="/mypage"
-                        className="text-xs bg-slate-800 hover:bg-slate-700 text-amber-400 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors font-medium"
-                    >
-                      👤 마이페이지
-                    </Link>
-
-                    <button onClick={handleLogout} className="text-xs text-slate-400 hover:text-red-400 transition-colors bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
-                      로그아웃
-                    </button>
-                  </div>
-              ) : (
-                  <div className="flex items-center gap-2">
-                    {/* 비로그인 상태여도 게시판 구경은 가능하도록 보조 링크 배치 */}
-                    <Link href="/board" className="md:hidden text-xs text-slate-400 bg-slate-800 px-3 py-2 rounded-lg border border-slate-700">
-                      게시판
-                    </Link>
-                    <button
-                        onClick={() => setIsModalOpen(true)}
-                        className="text-xs font-bold bg-amber-400 hover:bg-amber-500 text-slate-900 px-4 py-2 rounded-lg transition-all shadow-lg shadow-amber-400/10"
-                    >
-                      로그인
-                    </button>
-                  </div>
-              )}
-            </nav>
-          </div>
-        </header>
+        {/* 💡 1. NAVIGATION BAR 헤더 영역이 layout.tsx로 이동했으므로 이곳에서는 완전히 지워졌습니다. */}
 
         {/* ─── 2. MAIN CONTENTS ─── */}
         <main className="max-w-6xl mx-auto px-6 py-10 space-y-10">
+
+          {/* 시세 새로고침 보조 버튼 바 */}
+          <div className="flex justify-end">
+            <button
+                onClick={() => fetchTimelineData(limit)}
+                className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl border border-slate-700/60 transition-colors shadow-md flex items-center gap-1.5"
+            >
+              <span>🔄</span> 시세 새로고침
+            </button>
+          </div>
 
           {/* SECTION A: 현재 적용 중인 시세 요약 단가 카드 */}
           <section className="space-y-4">
@@ -402,7 +302,7 @@ export default function DashboardPage() {
 
         </main>
 
-        {/* ─── 🚪 3. 로그인 전용 모달 ─── */}
+        {/* ─── 🚪 3. 로그인 전용 모달 (인게임 전용 이메일 로그인 창 유지) ─── */}
         {isModalOpen && (
             <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
               <div className="bg-[#161d2a] border border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-5 relative">
@@ -423,19 +323,6 @@ export default function DashboardPage() {
                   <button type="submit" disabled={authLoading} className="w-full bg-amber-400 hover:bg-amber-500 disabled:bg-slate-700 text-slate-900 font-bold py-2.5 rounded-xl text-sm mt-2">{authLoading ? '로그인 처리 중...' : '로그인'}</button>
                 </form>
                 <p className="text-[11px] text-slate-500 text-center bg-slate-900/40 py-2 rounded-lg border border-slate-800/60">📌 아직 계정이 없다면 먼저 클라이언트 프로그램에서 나침반 정보 연동 및 가입절차를 진행하셔야 합니다.</p>
-              </div>
-            </div>
-        )}
-
-        {/* ─── 👤 4. 기존 모달 구조 백업 ─── */}
-        {isMyPageOpen && (
-            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-              <div className="bg-[#161d2a] border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-6 relative">
-                <button onClick={() => setIsMyPageOpen(false)} className="absolute top-4 right-4 text-slate-500 hover:text-slate-300 text-lg">✕</button>
-                <div className="border-b border-slate-800 pb-3">
-                  <h3 className="text-lg font-bold text-amber-400 flex items-center gap-2"><span>👤</span> 백업용 프로필 카드</h3>
-                </div>
-                <div className="text-center py-4 text-xs text-slate-500">주소창 리팩토링 후 /mypage 경로로 완전 이전될 임시 공간입니다.</div>
               </div>
             </div>
         )}
