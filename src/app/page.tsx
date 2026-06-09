@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import Link from 'next/link'; // 🚀 Next.js 내비게이션 링크 컴포넌트 추가
 
 const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,11 +15,20 @@ export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  // 🔥 [신규 상태] 현재 조회할 데이터의 개수 (기본값: 6 = 2시간)
   const [limit, setLimit] = useState<number>(6);
 
-  // 📡 데이터 가져오는 함수 (limit 상태를 주입받아 동적으로 작동)
+  // 🔐 오직 로그인 팝업만 관리하는 상태
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+
+  // 👤 기존 모달 관련 상태는 유지하되, 이번 단계에서는 헤더 버튼을 독립된 Link로 매핑합니다.
+  const [isMyPageOpen, setIsMyPageOpen] = useState(false);
+  const [profileData, setProfileData] = useState<any>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  // 📡 데이터 가져오는 함수 (시세 타임라인)
   const fetchTimelineData = async (currentLimit: number = limit) => {
     try {
       setLoading(true);
@@ -50,21 +60,48 @@ export default function DashboardPage() {
     }
   };
 
-  // 🔄 초기 로드 및 limit 상태 변경 시 데이터 재요청
+  // 👤 Supabase profiles 테이블에서 로그인한 유저의 마인크래프트 정보 가져오기
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      setProfileLoading(true);
+      const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+
+      if (error) throw error;
+      setProfileData(data);
+    } catch (err: any) {
+      console.error('프로필 로드 에러:', err.message);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchTimelineData(limit);
   }, [limit]);
 
-  // 유저 인증 체크
+  // 🔐 Supabase 인증 리스너
   useEffect(() => {
     async function checkUser() {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchUserProfile(session.user.id);
+      }
     }
     checkUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
+        fetchUserProfile(currentUser.id);
+      } else {
+        setProfileData(null);
+      }
     });
 
     return () => {
@@ -72,23 +109,42 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const handleLogin = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin },
-    });
-    if (error) alert('로그인 에러: ' + error.message);
+  // 🔑 클라이언트 인증 기반 이메일 로그인 핸들러
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+
+      alert('성공적으로 로그인되었습니다.');
+      setIsModalOpen(false);
+      setEmail('');
+      setPassword('');
+    } catch (err: any) {
+      alert('서버 에러 메시지: ' + err.message);
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    alert('로그아웃 되었습니다.');
+    const { error } = await supabase.auth.signOut();
+    if (error) alert('로그아웃 에러: ' + error.message);
+    else {
+      alert('로그아웃 되었습니다.');
+      setIsMyPageOpen(false);
+    }
   };
 
   const formatKstTime = (timeframeStr: string) => {
     try {
       const date = new Date(timeframeStr);
-      date.setHours(date.getHours() + 3); // 3시간 수동 보정
+      date.setHours(date.getHours() + 3);
 
       const hours = String(date.getHours()).padStart(2, '0');
       const minutes = String(date.getMinutes()).padStart(2, '0');
@@ -100,7 +156,6 @@ export default function DashboardPage() {
 
   const currentActive = [...timeline].reverse().find((t) => t.status === 'REGISTERED');
 
-  // 📊 차트 데이터 구성
   const chartData = timeline.map(slot => {
     const displayTime = formatKstTime(slot.timeframe);
     if (slot.status === 'REGISTERED') {
@@ -117,16 +172,13 @@ export default function DashboardPage() {
     return { name: displayTime };
   });
 
-  // 🏆 제보자 랭킹 집계 로직
   const getRankings = () => {
     const counts: { [key: string]: number } = {};
-
     timeline.forEach(slot => {
       if (slot.status === 'REGISTERED' && slot.registered_by) {
         counts[slot.registered_by] = (counts[slot.registered_by] || 0) + 1;
       }
     });
-
     return Object.keys(counts)
         .map(username => ({ username, count: counts[username] }))
         .sort((a, b) => b.count - a.count);
@@ -134,50 +186,83 @@ export default function DashboardPage() {
 
   const rankings = getRankings();
 
-  // 🕒 버튼에 노출할 텍스트 변환용 헬퍼 객체
   const getTimeLabel = (currentLimit: number) => {
     if (currentLimit === 6) return '2시간';
     if (currentLimit === 12) return '4시간';
     if (currentLimit === 24) return '8시간';
-    if (currentLimit === 48) return '16시간';
+    if (currentLimit === 36) return '12시간';
     if (currentLimit === 72) return '24시간';
     return `${currentLimit}개`;
   };
 
   return (
-      <div className="min-h-screen bg-[#0f141c] text-slate-100 font-sans">
+      <div className="min-h-screen bg-[#0f141c] text-slate-100 font-sans relative">
 
-        {/* ─── 1. NAVIGATION BAR ─── */}
+        {/* ─── 1. NAVIGATION BAR (라우팅 연동 개편) ─── */}
         <header className="border-b border-slate-800 bg-[#161d2a]/90 backdrop-blur sticky top-0 z-50 px-6 py-4">
           <div className="max-w-6xl mx-auto flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl animate-pulse">🌾</span>
-              <div>
-                <h1 className="text-xl font-bold text-amber-400 tracking-wide">GOLD CROP</h1>
-                <p className="text-xs text-slate-400">실시간 황금 작물 시세 현황판</p>
-              </div>
+
+            {/* 좌측 로고 및 서브 내비게이션 탭 영역 */}
+            <div className="flex items-center gap-8">
+              <Link href="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
+                <span className="text-2xl animate-pulse">🌾</span>
+                <div>
+                  <h1 className="text-xl font-bold text-amber-400 tracking-wide">GOLD CROP</h1>
+                  <p className="text-xs text-slate-400">실시간 황금 작물 시세 현황판</p>
+                </div>
+              </Link>
+
+              {/* 📑 핵심 메뉴 탭 리스트 추가 */}
+              <nav className="hidden md:flex items-center gap-1 text-sm font-medium text-slate-400">
+                <Link href="/" className="px-4 py-2 rounded-xl bg-slate-800/50 text-amber-400 border border-slate-700/50">
+                  📈 시세 현황판
+                </Link>
+                <Link href="/board" className="px-4 py-2 rounded-xl hover:text-slate-200 hover:bg-slate-800/30 transition-all">
+                  💬 자유게시판
+                </Link>
+              </nav>
             </div>
 
+            {/* 우측 유저 세션 및 유틸리티 영역 */}
             <nav className="flex items-center gap-4">
               <button
                   onClick={() => fetchTimelineData(limit)}
-                  className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors mr-2"
+                  className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors mr-1"
               >
                 🔄 새로고침
               </button>
+
               {user ? (
-                  <div className="flex items-center gap-4">
-                <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-md font-medium">
-                  🟢 {user.email?.split('@')[0]}님
-                </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-md font-medium">
+                      🟢 {user.user_metadata?.display_name || user.email?.split('@')[0]}님
+                    </span>
+
+                    {/* 🚀 수정 포인트: 모달을 여는 대신 독립된 /mypage URL 주소로 이동시킵니다. */}
+                    <Link
+                        href="/mypage"
+                        className="text-xs bg-slate-800 hover:bg-slate-700 text-amber-400 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors font-medium"
+                    >
+                      👤 마이페이지
+                    </Link>
+
                     <button onClick={handleLogout} className="text-xs text-slate-400 hover:text-red-400 transition-colors bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
                       로그아웃
                     </button>
                   </div>
               ) : (
-                  <button onClick={handleLogin} className="text-xs font-bold bg-amber-400 hover:bg-amber-500 text-slate-900 px-4 py-2 rounded-lg transition-all shadow-lg shadow-amber-400/10">
-                    구글 계정으로 로그인
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {/* 비로그인 상태여도 게시판 구경은 가능하도록 보조 링크 배치 */}
+                    <Link href="/board" className="md:hidden text-xs text-slate-400 bg-slate-800 px-3 py-2 rounded-lg border border-slate-700">
+                      게시판
+                    </Link>
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="text-xs font-bold bg-amber-400 hover:bg-amber-500 text-slate-900 px-4 py-2 rounded-lg transition-all shadow-lg shadow-amber-400/10"
+                    >
+                      로그인
+                    </button>
+                  </div>
               )}
             </nav>
           </div>
@@ -186,7 +271,7 @@ export default function DashboardPage() {
         {/* ─── 2. MAIN CONTENTS ─── */}
         <main className="max-w-6xl mx-auto px-6 py-10 space-y-10">
 
-          {/* SECTION A: 현재 활성화된 상인 단가 카드 보드 */}
+          {/* SECTION A: 현재 적용 중인 시세 요약 단가 카드 */}
           <section className="space-y-4">
             <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
               <span>💡</span> 현재 적용 중인 시세 {currentActive && <span className="text-xs text-emerald-400 lowercase">({currentActive.registered_by})</span>}
@@ -209,15 +294,13 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          {/* SECTION B: 20분 주기 시세 변동 추이 그래프 */}
+          {/* SECTION B: 시세 변동 추이 그래프 */}
           <section className="space-y-4">
-            {/* 🔥 그래프 타이틀 바 우측에 시간 설정용 버튼 그룹 배치 */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
                 <span>📈</span> 시세 변동 그래프 ({getTimeLabel(limit)} 조회 중)
               </h2>
 
-              {/* ⏱️ 시간 제한 토글 필터 인터페이스 */}
               <div className="flex bg-[#161d2a] p-1 rounded-xl border border-slate-800 self-start sm:self-auto shadow-inner">
                 {[6, 12, 24, 36, 72].map((timeLimit) => (
                     <button
@@ -318,6 +401,45 @@ export default function DashboardPage() {
           </section>
 
         </main>
+
+        {/* ─── 🚪 3. 로그인 전용 모달 ─── */}
+        {isModalOpen && (
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+              <div className="bg-[#161d2a] border border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-5 relative">
+                <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-slate-500 hover:text-slate-300 text-lg">✕</button>
+                <div className="text-center">
+                  <h3 className="text-xl font-bold text-amber-400">현황판 로그인</h3>
+                  <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">클라이언트에서 발급 및 등록 완료한<br />이메일 계정 정보를 입력하세요.</p>
+                </div>
+                <form onSubmit={handleLoginSubmit} className="space-y-4">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400 block mb-1">이메일 주소</label>
+                    <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="example@email.com" className="w-full bg-[#0f141c] border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-400" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400 block mb-1">비밀번호</label>
+                    <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="비밀번호 입력" className="w-full bg-[#0f141c] border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-400" />
+                  </div>
+                  <button type="submit" disabled={authLoading} className="w-full bg-amber-400 hover:bg-amber-500 disabled:bg-slate-700 text-slate-900 font-bold py-2.5 rounded-xl text-sm mt-2">{authLoading ? '로그인 처리 중...' : '로그인'}</button>
+                </form>
+                <p className="text-[11px] text-slate-500 text-center bg-slate-900/40 py-2 rounded-lg border border-slate-800/60">📌 아직 계정이 없다면 먼저 클라이언트 프로그램에서 나침반 정보 연동 및 가입절차를 진행하셔야 합니다.</p>
+              </div>
+            </div>
+        )}
+
+        {/* ─── 👤 4. 기존 모달 구조 백업 ─── */}
+        {isMyPageOpen && (
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+              <div className="bg-[#161d2a] border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-6 relative">
+                <button onClick={() => setIsMyPageOpen(false)} className="absolute top-4 right-4 text-slate-500 hover:text-slate-300 text-lg">✕</button>
+                <div className="border-b border-slate-800 pb-3">
+                  <h3 className="text-lg font-bold text-amber-400 flex items-center gap-2"><span>👤</span> 백업용 프로필 카드</h3>
+                </div>
+                <div className="text-center py-4 text-xs text-slate-500">주소창 리팩토링 후 /mypage 경로로 완전 이전될 임시 공간입니다.</div>
+              </div>
+            </div>
+        )}
+
       </div>
   );
 }
