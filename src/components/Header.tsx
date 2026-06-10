@@ -112,8 +112,12 @@ export default function Header() {
                             <Link href="/" className={`transition ${pathname === '/' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
                                 📈 시세 현황판
                             </Link>
+                            {/* 💡 [추가] 유저들이 직관적으로 누를 수 있도록 이용 가이드 슬롯 매립 */}
+                            <Link href="/guide" className={`transition ${pathname === '/guide' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
+                                📖 이용 가이드
+                            </Link>
                             <Link href="/relics" className={`transition ${pathname === '/relics' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
-                                📖 유물 도감
+                                📜 유물 도감
                             </Link>
                             <Link href="/board" className={`transition ${pathname === '/board' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
                                 💬 빌드 공유 게시판

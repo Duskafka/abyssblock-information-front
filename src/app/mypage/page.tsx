@@ -94,7 +94,6 @@ export default function MyPage() {
                 return;
             }
 
-            // 제공해주신 Edge Function URL 호출
             const response = await fetch('https://aylpfrxixjatlgjxxnin.supabase.co/functions/v1/withdraw', {
                 method: 'POST',
                 headers: {
@@ -109,13 +108,10 @@ export default function MyPage() {
                 throw new Error(result.error || '탈퇴 처리 중 서버 에러가 발생했습니다.');
             }
 
-            // 클라이언트 사이드 토큰 클리어 및 로그아웃 처리
             await supabase.auth.signOut();
 
             alert(result.message || '회원 탈퇴가 안전하게 완료되었습니다. 이용해 주셔서 감사합니다.');
             setIsDeleteModalOpen(false);
-
-            // 메인 페이지로 새로고침 이동하여 상태 초기화
             window.location.href = '/';
 
         } catch (err: any) {
@@ -126,7 +122,47 @@ export default function MyPage() {
         }
     };
 
-    // ⏳ 로딩 중 UI
+    // 👑 [수정] 애매한 게이지바를 삭제하고 대량 구매자도 직관적으로 인지 가능한 텍스트 포맷터로 전면 개편
+    const getPremiumStatus = () => {
+        if (!profileData || !profileData.premium_until) {
+            return { isPaid: false, dDayText: '라이선스 없음', badgeColor: 'bg-slate-800 text-slate-400' };
+        }
+
+        const expireDate = new Date(profileData.premium_until);
+        const now = new Date();
+        const diffTime = expireDate.getTime() - now.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        // 기간 만료 처리
+        if (diffDays <= 0) {
+            return { isPaid: false, dDayText: '기간 만료됨', badgeColor: 'bg-red-500/10 text-red-400 border border-red-500/20' };
+        }
+
+        // 남은 기간에 따른 직관적인 배지 스타일링만 유지
+        let badgeColor = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+        if (diffDays <= 3) {
+            badgeColor = 'bg-rose-500 text-white animate-pulse'; // 3일 이하는 갱신 독촉 깜빡임
+        } else if (diffDays <= 7) {
+            badgeColor = 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
+        }
+
+        // 날짜 가독성 포맷팅 (YYYY-MM-DD HH:mm)
+        const formattedDate = expireDate.toLocaleDateString('ko-KR', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        return {
+            isPaid: true,
+            dDayText: `+${diffDays}일 남음`, // 🎯 직관적으로 몇 일 남았는지만 플러스를 붙여서 노출
+            expireDateText: formattedDate,
+            badgeColor
+        };
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-[#0f141c] text-slate-100 flex items-center justify-center font-sans">
@@ -138,8 +174,8 @@ export default function MyPage() {
         );
     }
 
-    // 💡 변경된 부분: 제공해주신 유틸 함수를 통해 등급 스킨 이미지(NETHERITE, OBSIDIAN 등 포함) 로드
     const compassSrc = getCompassSrc(profileData?.compass_rank);
+    const premium = getPremiumStatus();
 
     return (
         <div className="min-h-screen bg-[#0f141c] text-slate-100 font-sans">
@@ -168,11 +204,34 @@ export default function MyPage() {
                                             className="w-full h-full object-contain"
                                         />
                                     </div>
-                                    <div>
+                                    <div className="flex-1">
                                         <span className="text-xs text-amber-400/80 font-semibold uppercase tracking-wider block">
                                             Minecraft Account ({profileData.compass_rank || 'BRONZE'} RANK)
                                         </span>
                                         <span className="text-xl font-black text-slate-100 tracking-wide">{profileData.minecraft_username}</span>
+                                    </div>
+                                </div>
+
+                                {/* 👑 [UI 수정 완료] 애매한 게이지바를 전면 제거하고 정보 중심의 깔끔한 구조로 개편 */}
+                                <div className="bg-[#0f141c] p-4 rounded-xl border border-slate-800 flex justify-between items-center shadow-inner">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">자동거래 프리미엄 라이선스</span>
+                                            {premium.isPaid && <span className="text-[10px] bg-amber-400/10 text-amber-400 border border-amber-400/20 px-1.5 py-0.5 rounded-md font-bold">VIP</span>}
+                                        </div>
+                                        {premium.isPaid ? (
+                                            <p className="text-[11px] text-slate-500">
+                                                만료 기한: <span className="font-mono text-slate-300 font-medium">{premium.expireDateText}</span>
+                                            </p>
+                                        ) : (
+                                            <p className="text-[11px] text-slate-500">현재 등록된 라이선스 제어권이 없습니다.</p>
+                                        )}
+                                    </div>
+
+                                    <div className="shrink-0">
+                                        <span className={`text-xs font-black px-3 py-1.5 rounded-xl ${premium.badgeColor}`}>
+                                            {premium.dDayText}
+                                        </span>
                                     </div>
                                 </div>
 
