@@ -173,7 +173,7 @@ export default function Header() {
                     <div className="absolute inset-0" onClick={() => setIsModalOpen(false)} />
                     <div className="relative w-full max-w-sm p-6 bg-[#161d2a] border border-slate-800 rounded-2xl shadow-2xl z-10 text-slate-200">
                         <div className="mb-5 text-center">
-                            <h3 className="text-lg font-bold text-amber-400 tracking-wide">🌾 GOLD CROP 로그인</h3>
+                            <h3 className="text-lg font-bold text-amber-400 tracking-wide">로그인</h3>
                             <p className="text-xs text-slate-400 mt-1">인게임에서 생성한 계정 정보를 입력해 주세요.</p>
                         </div>
                         <form onSubmit={handleEmailLogin} className="space-y-4">

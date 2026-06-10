@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "🌾 GOLD CROP",
-  description: "심연 원정대 유물 시너지 및 시세 현황판",
+  title: "Abyssblock Information",
+  description: "어비스블록 정보 서비스",
 };
 
 export default function RootLayout({
