@@ -67,17 +67,53 @@ export default function GuidePage() {
 
                 {/* 상단 타이틀 */}
                 <div className="text-center space-y-3 border-b border-slate-800 pb-8">
-          <span className="text-xs bg-amber-400/10 text-amber-400 border border-amber-400/20 px-3 py-1 rounded-full font-bold uppercase tracking-widest">
-            User Guide
-          </span>
+                    <span className="text-xs bg-amber-400/10 text-amber-400 border border-amber-400/20 px-3 py-1 rounded-full font-bold uppercase tracking-widest">
+                        User Guide
+                    </span>
                     <h1 className="text-3xl font-black tracking-tight text-slate-100 sm:text-4xl">
-                        자동거래 프리미엄 모드 이용 안내
+                        모드 이용 안내
                     </h1>
                     <p className="text-sm text-slate-400 max-w-xl mx-auto leading-relaxed">
                         Abyssblock Info 현황판 서비스와 인게임 클라이언트 매크로 모드를 <br />
                         실시간으로 연동하고 올바르게 사용하는 방법을 설명합니다.
                     </p>
                 </div>
+
+                {/* 💾 [추가] 모드 & 자바 다운로드 카드 섹션 */}
+                {/* 💾 모드 & 자바 다운로드 카드 섹션 */}
+                <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <a
+                        href="https://drive.google.com/file/d/1AJnPGrspzWn7rh0AGKeuQ4KMlNoZe9_n/view?usp=drive_link"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-gradient-to-br from-amber-500/20 to-amber-600/5 border border-amber-500/30 rounded-2xl p-5 flex items-center justify-between group hover:border-amber-400 transition shadow-lg shadow-amber-500/5"
+                    >
+                        <div className="space-y-1">
+                            <span className="text-[10px] bg-amber-400 text-slate-900 px-2 py-0.5 rounded-md font-black uppercase tracking-wider">DOWNLOAD</span>
+                            <h3 className="text-base font-bold text-slate-100 group-hover:text-amber-400 transition-colors">최신 모드 다운로드</h3>
+                            <p className="text-xs text-slate-400">구글 드라이브를 통한 안전한 클라이언트 수령</p>
+                        </div>
+                        <span className="text-2xl group-hover:translate-x-1 transition-transform filter drop-shadow">💾</span>
+                    </a>
+
+                    {/* 👇 이 부분의 텍스트와 배지를 모드 스펙에 맞게 전면 수정했습니다! */}
+                    <a
+                        href="https://www.oracle.com/java/technologies/downloads/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-[#161d2a] border border-slate-800 rounded-2xl p-5 flex items-center justify-between group hover:border-slate-700 transition shadow-lg"
+                    >
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">SPECIFICATION</span>
+                                <span className="text-[10px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-1.5 py-0.5 rounded-md font-medium">v1.21.4 Fabric</span>
+                            </div>
+                            <h3 className="text-base font-bold text-slate-200 group-hover:text-slate-100 transition-colors">구동 환경 및 Java 설치</h3>
+                            <p className="text-xs text-slate-400">마인크래프트 1.21.4 패브릭 전용 모드 및 필수 런타임</p>
+                        </div>
+                        <span className="text-2xl group-hover:translate-x-1 transition-transform">☕</span>
+                    </a>
+                </section>
 
                 {/* 핵심 프로세스 가이드 단계 */}
                 <section className="space-y-6">
@@ -93,8 +129,8 @@ export default function GuidePage() {
                             >
                                 {/* 배경 대형 숫자 */}
                                 <span className="absolute right-4 bottom-[-10px] text-7xl font-black text-slate-800/10 select-none group-hover:text-slate-800/20 transition-colors">
-                  {step.num}
-                </span>
+                                    {step.num}
+                                </span>
 
                                 {/* 아이콘 섹션 */}
                                 <div className="w-12 h-12 bg-[#0f141c] border border-slate-800 rounded-xl flex items-center justify-center text-xl shrink-0 shadow-inner">
@@ -107,8 +143,8 @@ export default function GuidePage() {
                                         <span className="text-xs font-bold text-amber-400 font-mono">STEP {step.num}</span>
                                         <h3 className="text-base font-bold text-slate-200">{step.title}</h3>
                                         <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-md font-medium border border-slate-700/50">
-                      {step.badge}
-                    </span>
+                                            {step.badge}
+                                        </span>
                                     </div>
                                     <p className="text-xs text-slate-400 leading-relaxed max-w-2xl">
                                         {step.desc}
