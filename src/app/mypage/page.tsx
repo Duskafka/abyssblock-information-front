@@ -9,6 +9,17 @@ const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+// 💡 compass_rank 값에 따라 이미지 경로를 매핑해주는 객체
+const COMPASS_IMAGES: Record<string, string> = {
+    'WOODEN': '/compass/wooden_compass.png',
+    'BRONZE': '/compass/wooden_compass.png',
+    'STONE': '/compass/stone_compass.png',
+    'IRON': '/compass/iron_compass.png',
+    'GOLDEN': '/compass/golden_compass.png',
+    'EMERALD': '/compass/emerald_compass.png',
+    'DIAMOND': '/compass/diamond_compass.png',
+};
+
 export default function MyPage() {
     const [user, setUser] = useState<any>(null);
     const [profileData, setProfileData] = useState<any>(null);
@@ -81,13 +92,14 @@ export default function MyPage() {
         );
     }
 
+    // 현재 등급에 맞는 나침반 이미지 주소 매핑 (없으면 나무 나침반을 기본값으로)
+    const compassSrc = COMPASS_IMAGES[profileData?.compass_rank] || '/compass/wooden_compass.png';
+
     return (
         <div className="min-h-screen bg-[#0f141c] text-slate-100 font-sans">
 
-            {/* 💡 1. NAVIGATION BAR 헤더 영역이 layout.tsx로 이동했으므로 이곳에서는 완전히 삭제되었습니다. */}
-
-            {/* ─── 2. MAIN CONTENTS ─── */}
-            <main className="max-w-xl mx-auto px-6 py-10"> {/* 여백을 py-16에서 py-10으로 조절했습니다 */}
+            {/* ─── MAIN CONTENTS ─── */}
+            <main className="max-w-xl mx-auto px-6 py-10">
                 {user ? (
                     <div className="bg-[#161d2a] border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-6">
 
@@ -101,26 +113,26 @@ export default function MyPage() {
 
                         {profileData ? (
                             <div className="space-y-5">
-                                {/* 프로필 아바타 영역 */}
+                                {/* 🧭 프로필 아바타 영역 (나침반 이미지 + 등급 요소를 여기서 직관적으로 표현) */}
                                 <div className="flex items-center gap-4 bg-[#0f141c] p-4 rounded-xl border border-slate-800">
-                                    <div className="w-14 h-14 bg-amber-400/10 border border-amber-400/30 rounded-2xl flex items-center justify-center text-3xl">
-                                        🎮
+                                    <div className="w-14 h-14 bg-amber-400/5 border border-amber-400/20 rounded-2xl flex items-center justify-center p-2.5 shrink-0 shadow-inner">
+                                        <img
+                                            src={compassSrc}
+                                            alt=""
+                                            className="w-full h-full object-contain"
+                                        />
                                     </div>
                                     <div>
-                                        <span className="text-xs text-amber-400/80 font-semibold uppercase tracking-wider block">Minecraft Active Account</span>
+                                        <span className="text-xs text-amber-400/80 font-semibold uppercase tracking-wider block">
+                                            Minecraft Account ({profileData.compass_rank || 'BRONZE'} RANK)
+                                        </span>
                                         <span className="text-xl font-black text-slate-100 tracking-wide">{profileData.minecraft_username}</span>
                                     </div>
                                 </div>
 
                                 {/* 세부 정보 필드 리스트 */}
                                 <div className="space-y-3">
-                                    <div>
-                                        <span className="text-[11px] font-bold text-slate-500 uppercase block mb-1">인게임 나침반 등급 (Compass Rank)</span>
-                                        <div className="w-full bg-[#0f141c] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-amber-400 font-extrabold flex items-center justify-between">
-                                            <span>💎 {profileData.compass_rank || 'NONE'} RANK</span>
-                                            <span className="text-[10px] text-slate-500 font-normal">게임 내 자동 부여</span>
-                                        </div>
-                                    </div>
+                                    {/* 💡 중복되던 Compass Rank 로우 필드가 삭제되었습니다. */}
 
                                     <div>
                                         <span className="text-[11px] font-bold text-slate-500 uppercase block mb-1">모장 고유 UUID (Mojang UUID)</span>

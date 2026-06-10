@@ -7,6 +7,10 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { z } from 'zod';
 
+// 🧭 작성하신 경로에서 상수 및 유틸 함수 로드
+import { getCompassSrc } from '@/app/constants/compass';
+import { checkProfanity } from '@/app/constants/profanity'
+
 const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -26,7 +30,6 @@ const markdownComponents = {
     blockquote: ({ ...props }) => <blockquote className="border-l-4 border-slate-600 pl-3 italic text-slate-400 my-2" {...props} />,
 };
 
-// 폼 데이터 검증을 위한 Zod 스키마
 const postSchema = z.object({
     title: z.string()
         .min(2, { message: "제목은 최소 2글자 이상이어야 합니다." })
@@ -135,22 +138,37 @@ export default function BoardPage() {
     const fetchBoardData = async () => {
         try {
             setLoading(true);
+
             const { data: relicData } = await supabase.from('relics').select('*').order('korean_name');
-            setRelics(relicData || []);
+            const relicList = relicData || [];
+            setRelics(relicList);
+            const relicMap = new Map(relicList.map(r => [r.id, r]));
 
-            const { data: postData } = await supabase
-                .from('posts')
-                .select(`
-          *,
-          m1:relics!posts_main_relic_1_fkey(korean_name, image_url),
-          m2:relics!posts_main_relic_2_fkey(korean_name, image_url),
-          m3:relics!posts_main_relic_3_fkey(korean_name, image_url)
-        `)
-                .order('created_at', { ascending: false });
+            const { data: rawPosts } = await supabase.from('posts').select('*').order('created_at', { ascending: false });
+            if (!rawPosts) {
+                setPosts([]);
+                return;
+            }
 
-            setPosts(postData || []);
+            const { data: profileData } = await supabase.from('profiles').select('id, compass_rank');
+            const profileMap = new Map(profileData?.map(p => [p.id, p.compass_rank]) || []);
+
+            const formattedPosts = rawPosts.map(post => {
+                // 💡 기본값 폴백을 'NULL'로 동기화했습니다.
+                const compassRank = profileMap.get(post.user_id) || 'NULL';
+
+                return {
+                    ...post,
+                    compass_rank: compassRank,
+                    m1: relicMap.get(post.main_relic_1) ? { korean_name: relicMap.get(post.main_relic_1).korean_name, image_url: relicMap.get(post.main_relic_1).image_url } : null,
+                    m2: relicMap.get(post.main_relic_2) ? { korean_name: relicMap.get(post.main_relic_2).korean_name, image_url: relicMap.get(post.main_relic_2).image_url } : null,
+                    m3: relicMap.get(post.main_relic_3) ? { korean_name: relicMap.get(post.main_relic_3).korean_name, image_url: relicMap.get(post.main_relic_3).image_url } : null,
+                };
+            });
+
+            setPosts(formattedPosts);
         } catch (err) {
-            console.error(err);
+            console.error("데이터 로드 중 장애 발생:", err);
         } finally {
             setLoading(false);
         }
@@ -171,28 +189,26 @@ export default function BoardPage() {
         }
     };
 
-    // 🌟 엣지 펑션 없이 프론트 단에서 밸리데이션 + 비속어 컷 한 뒤 직접 집어넣는 로직
     const handlePostSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user) return alert('로그인이 필요합니다.');
 
-        // 1. Zod 글자 수 / 형식 검증
         const validationResult = postSchema.safeParse({ title, content });
         if (!validationResult.success) {
             alert(validationResult.error.message);
             return;
         }
 
-        // 2. 비속어 필터링 검증
+        // 💡 우회 차단 정규식이 내장된 중앙 필터링 함수를 호출합니다.
         if (checkProfanity(title) || checkProfanity(content)) {
             alert('제목이나 내용에 제한된 표현(비속어)이 포함되어 있습니다. 올바른 유물 공략 문화를 만들어주세요!');
             return;
         }
 
         try {
-            const displayName = user.user_metadata?.display_name || user.email?.split('@')[0];
+            const { data: currentProfile } = await supabase.from('profiles').select('minecraft_username').eq('id', user.id).single();
+            const displayName = currentProfile?.minecraft_username || user.user_metadata?.display_name || user.email?.split('@')[0];
 
-            // 3. 모든 관문을 통과했으므로 웹 Supabase DB로 직접 인서트 (RLS가 유저 세션 알아서 대조 검증함)
             const { error } = await supabase.from('posts').insert([
                 {
                     user_id: user.id,
@@ -229,15 +245,6 @@ export default function BoardPage() {
 
     return (
         <div className="min-h-screen bg-[#0f141c] text-slate-100 font-sans">
-            <header className="border-b border-slate-800 bg-[#161d2a]/90 px-6 py-4 sticky top-0 z-40 backdrop-blur">
-                <div className="max-w-4xl mx-auto flex justify-between items-center">
-                    <Link href="/" className="text-xl font-bold text-amber-400 tracking-wider">🌾 GOLD CROP</Link>
-                    <nav className="flex gap-6 text-sm">
-                        <Link href="/" className="text-slate-400 hover:text-slate-200 transition">📈 시세 현황판</Link>
-                        <Link href="/board" className="text-amber-400 font-bold">💬 빌드 공유 게시판</Link>
-                    </nav>
-                </div>
-            </header>
 
             <main className="max-w-4xl mx-auto px-6 py-10 space-y-6">
                 <div className="flex justify-between items-center border-b border-slate-800 pb-4">
@@ -262,52 +269,81 @@ export default function BoardPage() {
                     <div className="text-center py-20 text-slate-500 bg-[#161d2a] rounded-2xl border border-slate-800 border-dashed">아직 등록된 유물 빌드가 없습니다.</div>
                 ) : (
                     <div className="space-y-4">
-                        {posts.map(post => (
-                            <div key={post.id} className="bg-[#161d2a] border border-slate-800 rounded-2xl p-5 space-y-4 hover:border-slate-700 transition">
-                                <div>
-                                    <h3 className="text-base font-bold text-slate-200">{post.title}</h3>
-                                    <p className="text-xs text-slate-400 mt-1">👤 {post.author_name} &nbsp;|&nbsp; 🕒 {new Date(post.created_at).toLocaleDateString()}</p>
-                                </div>
+                        {posts.map(post => {
+                            // 💡 'NULL' 문자열 처리를 컴포넌트 레벨에서도 유지합니다.
+                            const currentRank = post.compass_rank || 'NULL';
+                            const compassSrc = getCompassSrc(currentRank);
 
-                                <div className="bg-[#0f141c] p-5 rounded-xl border border-slate-800 text-xs leading-relaxed text-slate-300">
-                                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                                        {post.content}
-                                    </ReactMarkdown>
-                                </div>
+                            return (
+                                <Link
+                                    key={post.id}
+                                    href={`/board/${post.id}`}
+                                    className="block bg-[#161d2a] border border-slate-800 rounded-2xl p-5 space-y-4 hover:border-slate-700 transition cursor-pointer select-none"
+                                >
+                                    <div className="flex justify-between items-start gap-4">
+                                        <div>
+                                            <h3 className="text-base font-bold text-slate-200 flex items-center gap-2">
+                                                <span>📁</span>
+                                                {post.title}
+                                            </h3>
 
-                                <div className="space-y-2.5 pt-1">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <span className="text-[11px] font-bold text-amber-400 w-16">👑 핵심:</span>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {[post.m1, post.m2, post.m3].map((relic, idx) => relic ? (
-                                                <div key={idx} className="flex items-center gap-1.5 bg-[#0f141c] border border-slate-700 rounded-lg px-2.5 py-1 text-[11px]" title={relic.korean_name}>
-                                                    <img src={relic.image_url} alt="" className="w-4 h-4 object-contain" />
-                                                    <span className="text-slate-300 font-medium">{relic.korean_name}</span>
+                                            <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-1.5 font-medium">
+                                                <span>작성자:</span>
+
+                                                {/* 🧭 등급 나침반 배지 */}
+                                                <div className="flex items-center gap-1 bg-[#0f141c] px-2 py-0.5 rounded-md border border-slate-800/80 shrink-0" title={`작성자 등급: ${currentRank}`}>
+                                                    <img
+                                                        src={compassSrc}
+                                                        alt={currentRank}
+                                                        className="w-3.5 h-3.5 object-contain"
+                                                    />
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{currentRank}</span>
                                                 </div>
-                                            ) : null)}
-                                        </div>
-                                    </div>
 
-                                    {post.side_relics && post.side_relics.length > 0 && (
-                                        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/40">
-                                            <span className="text-[11px] font-bold text-slate-400 w-16">🔗 사이드:</span>
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {post.side_relics.map((sideId: string) => {
-                                                    const relicInfo = relics.find(r => r.id === sideId);
-                                                    if (!relicInfo) return null;
-                                                    return (
-                                                        <div key={sideId} className="flex items-center gap-1 bg-[#1a2332] border border-slate-800 rounded-md px-2 py-0.5 text-[10px]" title={relicInfo.korean_name}>
-                                                            <img src={relicInfo.image_url} alt="" className="w-3.5 h-3.5 object-contain" />
-                                                            <span className="text-slate-400">{relicInfo.korean_name}</span>
-                                                        </div>
-                                                    );
-                                                })}
+                                                <span className="text-slate-200 font-semibold">{post.author_name}</span>
+                                                <span className="text-slate-600 font-normal">&nbsp;|&nbsp;</span>
+                                                <span className="text-slate-500 text-[11px]">🕒 {new Date(post.created_at).toLocaleDateString()}</span>
                                             </div>
                                         </div>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
+                                        <span className="text-xs font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2.5 py-1 rounded-lg shrink-0">
+                                            자세히 보기 →
+                                        </span>
+                                    </div>
+
+                                    <div className="space-y-2.5 pt-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className="text-[11px] font-bold text-amber-400 w-16">👑 핵심:</span>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {[post.m1, post.m2, post.m3].map((relic, idx) => relic ? (
+                                                    <div key={idx} className="flex items-center gap-1.5 bg-[#0f141c] border border-slate-700 rounded-lg px-2.5 py-1 text-[11px]" title={relic.korean_name}>
+                                                        <img src={relic.image_url} alt="" className="w-4 h-4 object-contain" />
+                                                        <span className="text-slate-300 font-medium">{relic.korean_name}</span>
+                                                    </div>
+                                                ) : null)}
+                                            </div>
+                                        </div>
+
+                                        {post.side_relics && post.side_relics.length > 0 && (
+                                            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/40">
+                                                <span className="text-[11px] font-bold text-slate-400 w-16">🔗 사이드:</span>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {post.side_relics.map((sideId: string) => {
+                                                        const relicInfo = relics.find(r => r.id === sideId);
+                                                        if (!relicInfo) return null;
+                                                        return (
+                                                            <div key={sideId} className="flex items-center gap-1 bg-[#1a2332] border border-slate-800 rounded-md px-2 py-0.5 text-[10px]" title={relicInfo.korean_name}>
+                                                                <img src={relicInfo.image_url} alt="" className="w-3.5 h-3.5 object-contain" />
+                                                                <span className="text-slate-400">{relicInfo.korean_name}</span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </Link>
+                            );
+                        })}
                     </div>
                 )}
             </main>
@@ -451,20 +487,4 @@ export default function BoardPage() {
             )}
         </div>
     );
-}
-
-// ==========================================
-// 🛠️ 내장형 한국어 비속어 사정 및 우회 감지 필터 시스템
-// ==========================================
-const KOREAN_BADWORDS = [
-    "개새끼", "새끼", "시발", "씨발", "존나", "좆", "병신", "지랄", "정신병자",
-    "쓰레기", "미친놈", "미친년", "노가다", "ㅅㅂ", "ㅂㅅ", "ㅈㄴ", "ㄲㅈ", "꺼져",
-    "아가리", "닥쳐", "새키", "씌발", "썅", "틀딱", "맘충", "한남", "김치녀"
-];
-
-function checkProfanity(text: string): boolean {
-    if (!text) return false;
-    // 공백 및 특수문자를 제거하여 의도적인 띄어쓰기 욕설 방어 (예: 시   발 -> 시발)
-    const cleanedText = text.replace(/[\s~`!@#$%^&*()_|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, "");
-    return KOREAN_BADWORDS.some(badword => cleanedText.includes(badword));
 }
