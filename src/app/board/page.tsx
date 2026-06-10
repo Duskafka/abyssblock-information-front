@@ -117,6 +117,9 @@ export default function BoardPage() {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
 
+    // 피드 목록 조회를 위한 직업 필터 탭 상태 추가 ('전체', '기사', '마법사수', '사냥꾼')
+    const [activeFilterTab, setActiveFilterTab] = useState<string>('전체');
+
     // 폼 상태 관리
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
@@ -154,7 +157,6 @@ export default function BoardPage() {
             const profileMap = new Map(profileData?.map(p => [p.id, p.compass_rank]) || []);
 
             const formattedPosts = rawPosts.map(post => {
-                // 💡 기본값 폴백을 'NULL'로 동기화했습니다.
                 const compassRank = profileMap.get(post.user_id) || 'NULL';
 
                 return {
@@ -174,11 +176,22 @@ export default function BoardPage() {
         }
     };
 
+    // 💡 수정된 부분: 세션 로드 및 변경 사항을 유연하게 구독(Subscribe)하도록 변경
     useEffect(() => {
+        // 1. 초기 세션 값 가져오기
         supabase.auth.getSession().then(({ data: { session } }) => {
             setUser(session?.user ?? null);
         });
+
+        // 2. 실시간 인증 상태 변경 감시 리스너 설정 (헤더에서 로그인 처리가 완료되면 페이지 상태도 같이 연동됨)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null);
+        });
+
         fetchBoardData();
+
+        // 컴포넌트 언마운트 시 리스너 구독 해제
+        return () => subscription.unsubscribe();
     }, []);
 
     const handleSideToggle = (relicId: string) => {
@@ -199,7 +212,6 @@ export default function BoardPage() {
             return;
         }
 
-        // 💡 우회 차단 정규식이 내장된 중앙 필터링 함수를 호출합니다.
         if (checkProfanity(title) || checkProfanity(content)) {
             alert('제목이나 내용에 제한된 표현(비속어)이 포함되어 있습니다. 올바른 유물 공략 문화를 만들어주세요!');
             return;
@@ -215,6 +227,7 @@ export default function BoardPage() {
                     author_name: displayName,
                     title,
                     content,
+                    job: selectedJob,
                     main_relic_1: main1 || null,
                     main_relic_2: main2 || null,
                     main_relic_3: main3 || null,
@@ -243,6 +256,11 @@ export default function BoardPage() {
     const shopRelicsPool = filteredRelicsByJob.filter(r => r.grade === 'shop');
     const sideRelicsPool = filteredRelicsByJob.filter(r => r.grade === 'side');
 
+    const filteredPosts = posts.filter(post => {
+        if (activeFilterTab === '전체') return true;
+        return post.job === activeFilterTab;
+    });
+
     return (
         <div className="min-h-screen bg-[#0f141c] text-slate-100 font-sans">
 
@@ -250,7 +268,7 @@ export default function BoardPage() {
                 <div className="flex justify-between items-center border-b border-slate-800 pb-4">
                     <div>
                         <h2 className="text-lg font-bold text-slate-200">🌟 유저 추천 빌드 피드</h2>
-                        <p className="text-xs text-slate-400 mt-1">심연 원정대원들이 연구해낸 최적의 유물 시너지를 확인해 보세요.</p>
+                        <p className="text-xs text-slate-400 mt-1">유저들이 연구해낸 최적의 유물 시너지를 확인해 보세요.</p>
                     </div>
                     <button
                         onClick={() => {
@@ -263,14 +281,34 @@ export default function BoardPage() {
                     </button>
                 </div>
 
+                <div className="flex gap-2 bg-[#161d2a] p-1.5 rounded-xl border border-slate-800 w-fit">
+                    {['전체', '기사', '마법사수', '사냥꾼'].map((tab) => {
+                        const isActive = activeFilterTab === tab;
+                        return (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveFilterTab(tab)}
+                                className={`px-4 py-2 rounded-lg font-bold text-xs transition ${
+                                    isActive
+                                        ? 'bg-amber-400 text-slate-900 shadow-md'
+                                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                                }`}
+                            >
+                                {tab === '전체' ? '전체' : tab}
+                            </button>
+                        );
+                    })}
+                </div>
+
                 {loading ? (
                     <div className="text-center py-20 text-slate-500 bg-[#161d2a] rounded-2xl border border-slate-800">공략 대장을 불러오는 중...</div>
-                ) : posts.length === 0 ? (
-                    <div className="text-center py-20 text-slate-500 bg-[#161d2a] rounded-2xl border border-slate-800 border-dashed">아직 등록된 유물 빌드가 없습니다.</div>
+                ) : filteredPosts.length === 0 ? (
+                    <div className="text-center py-20 text-slate-500 bg-[#161d2a] rounded-2xl border border-slate-800 border-dashed">
+                        {activeFilterTab === '전체' ? '아직 등록된 유물 빌드가 없습니다.' : `⚔️ [${activeFilterTab}] 직업군에 등록된 유물 빌드가 없습니다.`}
+                    </div>
                 ) : (
                     <div className="space-y-4">
-                        {posts.map(post => {
-                            // 💡 'NULL' 문자열 처리를 컴포넌트 레벨에서도 유지합니다.
+                        {filteredPosts.map(post => {
                             const currentRank = post.compass_rank || 'NULL';
                             const compassSrc = getCompassSrc(currentRank);
 
@@ -287,10 +325,15 @@ export default function BoardPage() {
                                                 {post.title}
                                             </h3>
 
-                                            <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-1.5 font-medium">
+                                            <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-1.5 font-medium flex-wrap">
+                                                <span className="bg-amber-400/10 border border-amber-400/20 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                                                    {post.job || '일반'}
+                                                </span>
+
+                                                <span className="text-slate-600 font-normal">|</span>
+
                                                 <span>작성자:</span>
 
-                                                {/* 🧭 등급 나침반 배지 */}
                                                 <div className="flex items-center gap-1 bg-[#0f141c] px-2 py-0.5 rounded-md border border-slate-800/80 shrink-0" title={`작성자 등급: ${currentRank}`}>
                                                     <img
                                                         src={compassSrc}
@@ -353,7 +396,7 @@ export default function BoardPage() {
                     <div className="bg-[#161d2a] w-full max-w-4xl rounded-2xl border border-slate-800 p-6 space-y-4 shadow-2xl overflow-y-auto max-h-[95vh]">
 
                         <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-                            <h3 className="text-sm font-bold text-amber-400 flex items-center gap-2"><span>📝</span> 새 빌드 공략 작성 스튜디오</h3>
+                            <h3 className="text-sm font-bold text-amber-400 flex items-center gap-2"><span>📝</span> 새 빌드 작성</h3>
                             <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-200 text-lg font-bold p-1">✕</button>
                         </div>
 
@@ -430,7 +473,7 @@ export default function BoardPage() {
                                             <input
                                                 type="text" required value={title} onChange={e => setTitle(e.target.value)}
                                                 className="w-full bg-[#0f141c] border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-amber-400 text-xs font-semibold"
-                                                placeholder="예: 7단 던전 날먹하는 크리티컬 궁수 빌드"
+                                                placeholder="예: 소환수 사냥꾼 빌드"
                                             />
                                         </div>
 

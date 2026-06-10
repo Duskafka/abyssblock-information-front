@@ -25,6 +25,11 @@ export default function MyPage() {
     const [profileData, setProfileData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
+    // 🚨 회원 탈퇴 처리를 위한 상태 관리
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [confirmText, setConfirmText] = useState('');
+    const [isWithdrawing, setIsWithdrawing] = useState(false);
+
     // 👤 Supabase profiles 테이블에서 인게임 마인크래프트 정보 조회
     const fetchUserProfile = async (userId: string) => {
         try {
@@ -80,6 +85,55 @@ export default function MyPage() {
         else alert('로그아웃 되었습니다.');
     };
 
+    // 🪓 Edge Function을 호출하여 회원 탈퇴를 처리하는 함수
+    const handleWithdraw = async () => {
+        if (confirmText !== '회원탈퇴 승인') {
+            alert("'회원탈퇴 승인'을 정확히 입력해 주세요.");
+            return;
+        }
+
+        try {
+            setIsWithdrawing(true);
+
+            // 현재 세션의 Access Token(JWT)을 가져옵니다.
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                alert('인증 세션이 만료되었습니다. 다시 로그인 후 시도해 주세요.');
+                return;
+            }
+
+            // 제공해주신 Edge Function URL 호출
+            const response = await fetch('https://aylpfrxixjatlgjxxnin.supabase.co/functions/v1/withdraw', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}` // 헤더에 Bearer 토큰 주입
+                }
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || '탈퇴 처리 중 서버 에러가 발생했습니다.');
+            }
+
+            // 클라이언트 사이드 토큰 클리어 및 로그아웃 처리
+            await supabase.auth.signOut();
+
+            alert(result.message || '회원 탈퇴가 안전하게 완료되었습니다. 이용해 주셔서 감사합니다.');
+            setIsDeleteModalOpen(false);
+
+            // 메인 페이지로 새로고침 이동하여 상태 초기화
+            window.location.href = '/';
+
+        } catch (err: any) {
+            console.error('탈퇴 연동 에러:', err);
+            alert('회원 탈퇴에 실패했습니다: ' + err.message);
+        } finally {
+            setIsWithdrawing(false);
+        }
+    };
+
     // ⏳ 로딩 중 UI
     if (loading) {
         return (
@@ -113,7 +167,7 @@ export default function MyPage() {
 
                         {profileData ? (
                             <div className="space-y-5">
-                                {/* 🧭 프로필 아바타 영역 (나침반 이미지 + 등급 요소를 여기서 직관적으로 표현) */}
+                                {/* 🧭 프로필 아바타 영역 */}
                                 <div className="flex items-center gap-4 bg-[#0f141c] p-4 rounded-xl border border-slate-800">
                                     <div className="w-14 h-14 bg-amber-400/5 border border-amber-400/20 rounded-2xl flex items-center justify-center p-2.5 shrink-0 shadow-inner">
                                         <img
@@ -132,8 +186,6 @@ export default function MyPage() {
 
                                 {/* 세부 정보 필드 리스트 */}
                                 <div className="space-y-3">
-                                    {/* 💡 중복되던 Compass Rank 로우 필드가 삭제되었습니다. */}
-
                                     <div>
                                         <span className="text-[11px] font-bold text-slate-500 uppercase block mb-1">모장 고유 UUID (Mojang UUID)</span>
                                         <div className="w-full bg-[#0f141c] border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-400 font-mono select-all overflow-x-auto whitespace-nowrap scrollbar-none">
@@ -156,6 +208,23 @@ export default function MyPage() {
                             </div>
                         )}
 
+                        {/* 🚨 위험 구역 (Danger Zone) 추가 */}
+                        <div className="bg-red-500/5 border border-red-500/10 p-4 rounded-xl flex justify-between items-center transition-all">
+                            <div className="space-y-0.5">
+                                <h4 className="text-xs font-bold text-red-400 uppercase tracking-wider">위험 구역 (Danger Zone)</h4>
+                                <p className="text-[11px] text-slate-400 leading-relaxed">
+                                    계정을 탈퇴하면 동기화된 모든 인게임 정보 및 <br/>
+                                    공유하신 빌드 피드가 영구적으로 완전히 삭제됩니다.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setIsDeleteModalOpen(true)}
+                                className="bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/20 px-3.5 py-2 rounded-xl text-xs font-bold transition shrink-0 shadow-sm"
+                            >
+                                회원 탈퇴
+                            </button>
+                        </div>
+
                         {/* 하단 제어 액션 */}
                         <div className="pt-2 border-t border-slate-800 flex justify-between items-center">
                             <Link href="/" className="text-xs text-slate-400 hover:text-slate-200 transition-colors">
@@ -163,7 +232,7 @@ export default function MyPage() {
                             </Link>
                             <button
                                 onClick={handleLogout}
-                                className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-bold px-4 py-2 rounded-xl transition-all"
+                                className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-4 py-2 rounded-xl transition-all"
                             >
                                 이 브라우저에서 로그아웃
                             </button>
@@ -187,6 +256,58 @@ export default function MyPage() {
                     </div>
                 )}
             </main>
+
+            {/* ─── 회원 탈퇴 2차 검증 모달 시스템 ─── */}
+            {isDeleteModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className="bg-[#161d2a] w-full max-w-md rounded-2xl border border-slate-800 p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+                        <div className="text-center space-y-2">
+                            <span className="text-3xl">⚠️</span>
+                            <h3 className="text-sm font-bold text-red-400">정말로 계정을 파기하시겠습니까?</h3>
+                            <p className="text-[11px] text-slate-400 leading-relaxed">
+                                탈퇴 시 마인크래프트 계정 연동 정보가 전면 삭제되며,<br />
+                                데이터베이스 정책(CASCADE)에 따라 작성했던 모든 게시글이 동시 파기됩니다.<br />
+                                <span className="text-red-400 font-semibold">이 작업은 취소할 수 없습니다.</span>
+                            </p>
+                        </div>
+
+                        <div className="space-y-1.5 bg-[#0f141c] p-3 rounded-xl border border-slate-800">
+                            <label className="text-[10px] text-slate-500 block font-medium text-center uppercase tracking-wider">
+                                승인을 위해 아래에 <span className="text-red-400 font-bold">"회원탈퇴 승인"</span>을 입력해 주세요.
+                            </label>
+                            <input
+                                type="text"
+                                value={confirmText}
+                                onChange={(e) => setConfirmText(e.target.value)}
+                                placeholder="회원탈퇴 승인"
+                                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-center text-slate-200 focus:outline-none focus:border-red-500 font-bold transition"
+                            />
+                        </div>
+
+                        <div className="flex gap-2 pt-1 text-xs font-bold">
+                            <button
+                                type="button"
+                                disabled={isWithdrawing}
+                                onClick={() => {
+                                    setIsDeleteModalOpen(false);
+                                    setConfirmText('');
+                                }}
+                                className="w-1/2 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2.5 rounded-xl transition disabled:opacity-50"
+                            >
+                                취소하기
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleWithdraw}
+                                disabled={confirmText !== '회원탈퇴 승인' || isWithdrawing}
+                                className="w-1/2 bg-red-500 hover:bg-red-600 text-white py-2.5 rounded-xl transition disabled:opacity-20 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                            >
+                                {isWithdrawing ? '파기 진행 중...' : '확인 및 탈퇴'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div>
     );

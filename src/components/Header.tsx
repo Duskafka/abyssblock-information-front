@@ -5,20 +5,13 @@ import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+// 🧭 중앙 관리형 나침반 유틸 함수 임포트 (프로젝트 경로에 맞게 수정 가능)
+import { getCompassSrc } from '@/app/constants/compass';
+
 const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
-
-const COMPASS_IMAGES: Record<string, string> = {
-    'WOODEN': '/compass/wooden_compass.png',
-    'BRONZE': '/compass/wooden_compass.png',
-    'STONE': '/compass/stone_compass.png',
-    'IRON': '/compass/iron_compass.png',
-    'GOLDEN': '/compass/golden_compass.png',
-    'EMERALD': '/compass/emerald_compass.png',
-    'DIAMOND': '/compass/diamond_compass.png',
-};
 
 export default function Header() {
     const pathname = usePathname();
@@ -90,7 +83,9 @@ export default function Header() {
     };
 
     const displayName = profile?.minecraft_username || user?.email?.split('@')[0];
-    const compassSrc = COMPASS_IMAGES[profile?.compass_rank] || '/compass/wooden_compass.png';
+
+    // 💡 변경된 부분: 제공해주신 getCompassSrc 함수를 사용하여 유연하게 이미지 주소 매핑
+    const compassSrc = getCompassSrc(profile?.compass_rank);
 
     return (
         <>
@@ -158,7 +153,7 @@ export default function Header() {
                 </div>
             </header>
 
-            {/* 💡 2단계: 로그인 팝업 (모달) 레이어 정의 */}
+            {/* 💡 로그인 팝업 (모달) 레이어 정의 */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
                     {/* 모달 바깥 배경 클릭시 닫힘 처리 */}
