@@ -267,7 +267,7 @@ export default function BoardPage() {
             <main className="max-w-4xl mx-auto px-6 py-10 space-y-6">
                 <div className="flex justify-between items-center border-b border-slate-800 pb-4">
                     <div>
-                        <h2 className="text-lg font-bold text-slate-200">🌟 유저 추천 빌드 피드</h2>
+                        <h2 className="text-lg font-bold text-slate-200">💬 빌드 공유 게시판</h2>
                         <p className="text-xs text-slate-400 mt-1">유저들이 연구해낸 최적의 유물 시너지를 확인해 보세요.</p>
                     </div>
                     <button

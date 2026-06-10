@@ -99,7 +99,7 @@ export default function RelicsArchivePage() {
                 <div className="flex flex-col md:flex-row md:justify-between md:items-end border-b border-slate-800 pb-6 gap-4">
                     <div>
                         <h2 className="text-2xl font-black text-amber-400 flex items-center gap-2 tracking-wide">
-                            📖 GOLD CROP 유물 백과사전
+                            📖 유물 도감
                         </h2>
                         <p className="text-xs text-slate-400 mt-1.5">
                             현재 등록된 <span className="text-slate-200 font-bold">{relics.length}개</span>의 유물 상세 스펙과 인게임 메커니즘을 한눈에 살펴보세요.

@@ -4,21 +4,13 @@ import { useEffect, useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
 
+// 🧭 중앙 관리형 나침반 유틸 함수 및 등급 매핑 임포트
+import { getCompassSrc } from '@/app/constants/compass';
+
 const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
-
-// 💡 compass_rank 값에 따라 이미지 경로를 매핑해주는 객체
-const COMPASS_IMAGES: Record<string, string> = {
-    'WOODEN': '/compass/wooden_compass.png',
-    'BRONZE': '/compass/wooden_compass.png',
-    'STONE': '/compass/stone_compass.png',
-    'IRON': '/compass/iron_compass.png',
-    'GOLDEN': '/compass/golden_compass.png',
-    'EMERALD': '/compass/emerald_compass.png',
-    'DIAMOND': '/compass/diamond_compass.png',
-};
 
 export default function MyPage() {
     const [user, setUser] = useState<any>(null);
@@ -107,7 +99,7 @@ export default function MyPage() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}` // 헤더에 Bearer 토큰 주입
+                    'Authorization': `Bearer ${session.access_token}`
                 }
             });
 
@@ -146,8 +138,8 @@ export default function MyPage() {
         );
     }
 
-    // 현재 등급에 맞는 나침반 이미지 주소 매핑 (없으면 나무 나침반을 기본값으로)
-    const compassSrc = COMPASS_IMAGES[profileData?.compass_rank] || '/compass/wooden_compass.png';
+    // 💡 변경된 부분: 제공해주신 유틸 함수를 통해 등급 스킨 이미지(NETHERITE, OBSIDIAN 등 포함) 로드
+    const compassSrc = getCompassSrc(profileData?.compass_rank);
 
     return (
         <div className="min-h-screen bg-[#0f141c] text-slate-100 font-sans">
@@ -208,7 +200,7 @@ export default function MyPage() {
                             </div>
                         )}
 
-                        {/* 🚨 위험 구역 (Danger Zone) 추가 */}
+                        {/* 🚨 위험 구역 (Danger Zone) */}
                         <div className="bg-red-500/5 border border-red-500/10 p-4 rounded-xl flex justify-between items-center transition-all">
                             <div className="space-y-0.5">
                                 <h4 className="text-xs font-bold text-red-400 uppercase tracking-wider">위험 구역 (Danger Zone)</h4>

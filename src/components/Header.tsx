@@ -5,7 +5,7 @@ import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-// 🧭 중앙 관리형 나침반 유틸 함수 임포트 (프로젝트 경로에 맞게 수정 가능)
+// 🧭 중앙 관리형 나침반 유틸 함수 임포트
 import { getCompassSrc } from '@/app/constants/compass';
 
 const supabase = createBrowserClient(
@@ -89,12 +89,26 @@ export default function Header() {
 
     return (
         <>
-            <header className="border-b border-slate-800 bg-[#161d2a]/90 px-6 py-4 sticky top-0 z-40 backdrop-blur">
-                <div className="max-w-4xl mx-auto flex justify-between items-center">
-                    <Link href="/" className="text-xl font-bold text-amber-400 tracking-wider">🌾 GOLD CROP</Link>
+            <header className="border-b border-slate-800 bg-[#161d2a]/90 px-4 md:px-6 py-4 sticky top-0 z-40 backdrop-blur">
+                {/* 🛠️ max-w 키우고 flex-nowrap 및 gap 조정으로 절대 안 쪼개지게 방어 */}
+                <div className="max-w-5xl mx-auto flex flex-nowrap justify-between items-center gap-4 select-none">
 
-                    <div className="flex items-center gap-6 text-sm">
-                        <nav className="flex gap-6 items-center">
+                    {/* 🛠️ 로고 영역: whitespace-nowrap 추가 및 최대 너비 제한으로 텍스트 보호 */}
+                    <Link href="/" className="flex items-center gap-2 text-lg md:text-xl font-bold text-amber-400 tracking-wider group shrink-0 whitespace-nowrap">
+                        <img
+                            src="/icon.png"
+                            alt="서버 아이콘"
+                            className="w-6 h-6 object-contain [image-rendering:pixelated] transition-transform group-hover:scale-105"
+                        />
+                        <span className="flex flex-col md:flex-row md:items-center leading-none">
+                            <span>Abyssblock</span>
+                            <span className="md:ml-1.5 text-slate-200">Info</span>
+                        </span>
+                    </Link>
+
+                    {/* 🛠️ 메뉴 및 로그인 영역 전체 컨테이너: flex-nowrap과 gap-3~4로 다이어트 */}
+                    <div className="flex flex-nowrap items-center gap-3 md:gap-4 text-xs md:text-sm shrink-0">
+                        <nav className="flex gap-4 md:gap-5 items-center shrink-0 whitespace-nowrap">
                             <Link href="/" className={`transition ${pathname === '/' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
                                 📈 시세 현황판
                             </Link>
@@ -106,14 +120,14 @@ export default function Header() {
                             </Link>
                         </nav>
 
-                        <div className="h-4 w-[1px] bg-slate-800" />
+                        <div className="h-4 w-[1px] bg-slate-800 shrink-0" />
 
                         {/* 로그인 / 프로필 영역 */}
                         {user ? (
-                            <div className="flex items-center gap-3">
+                            <div className="flex flex-nowrap items-center gap-2 md:gap-3 shrink-0">
                                 <Link
                                     href="/mypage"
-                                    className={`text-xs px-2.5 py-1 rounded-lg border transition ${
+                                    className={`text-[11px] md:text-xs px-2 md:px-2.5 py-1 rounded-lg border transition shrink-0 whitespace-nowrap ${
                                         pathname === '/mypage'
                                             ? 'bg-amber-400/10 text-amber-400 border-amber-400/30 font-bold'
                                             : 'text-slate-300 border-slate-800 hover:border-slate-700 bg-slate-800/40 hover:bg-slate-800'
@@ -122,21 +136,21 @@ export default function Header() {
                                     마이페이지
                                 </Link>
 
-                                <div className="flex items-center gap-2 bg-slate-900/60 border border-slate-800 px-2.5 py-1 rounded-xl">
+                                <div className="flex flex-nowrap items-center gap-1.5 md:gap-2 bg-slate-900/60 border border-slate-800 px-2 md:px-2.5 py-1 rounded-xl shrink-0 whitespace-nowrap">
                                     <img
                                         src={compassSrc}
                                         alt={`${profile?.compass_rank || 'BRONZE'} 랭크`}
-                                        className="w-4 h-4 object-contain"
+                                        className="w-3.5 h-3.5 md:w-4 h-4 object-contain"
                                         title={`등급: ${profile?.compass_rank || 'BRONZE'}`}
                                     />
-                                    <span className="text-slate-400 text-xs font-medium">
-                                        👤 <span className="text-slate-200 font-semibold">{displayName}</span>님
+                                    <span className="text-slate-400 text-[11px] md:text-xs font-medium">
+                                        <span className="text-slate-200 font-semibold">{displayName}</span>님
                                     </span>
                                 </div>
 
                                 <button
                                     onClick={handleLogout}
-                                    className="text-[11px] text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-700 px-2.5 py-1 rounded-lg transition"
+                                    className="text-[10px] md:text-[11px] text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-700 px-2 md:px-2.5 py-1 rounded-lg transition shrink-0 whitespace-nowrap"
                                 >
                                     로그아웃
                                 </button>
@@ -144,7 +158,7 @@ export default function Header() {
                         ) : (
                             <button
                                 onClick={() => setIsModalOpen(true)}
-                                className="bg-amber-400/10 hover:bg-amber-400 text-amber-400 hover:text-slate-900 border border-amber-400/20 px-3 py-1.5 rounded-xl font-bold text-xs transition"
+                                className="bg-amber-400/10 hover:bg-amber-400 text-amber-400 hover:text-slate-900 border border-amber-400/20 px-2.5 md:px-3 py-1.5 rounded-xl font-bold text-[11px] md:text-xs transition shrink-0 whitespace-nowrap"
                             >
                                 로그인
                             </button>
@@ -156,16 +170,12 @@ export default function Header() {
             {/* 💡 로그인 팝업 (모달) 레이어 정의 */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
-                    {/* 모달 바깥 배경 클릭시 닫힘 처리 */}
                     <div className="absolute inset-0" onClick={() => setIsModalOpen(false)} />
-
-                    {/* 실제 모달 박스 */}
                     <div className="relative w-full max-w-sm p-6 bg-[#161d2a] border border-slate-800 rounded-2xl shadow-2xl z-10 text-slate-200">
                         <div className="mb-5 text-center">
                             <h3 className="text-lg font-bold text-amber-400 tracking-wide">🌾 GOLD CROP 로그인</h3>
                             <p className="text-xs text-slate-400 mt-1">인게임에서 생성한 계정 정보를 입력해 주세요.</p>
                         </div>
-
                         <form onSubmit={handleEmailLogin} className="space-y-4">
                             <div>
                                 <label className="block text-xs font-semibold text-slate-400 mb-1">이메일</label>
@@ -178,7 +188,6 @@ export default function Header() {
                                     required
                                 />
                             </div>
-
                             <div>
                                 <label className="block text-xs font-semibold text-slate-400 mb-1">비밀번호</label>
                                 <input
@@ -190,7 +199,6 @@ export default function Header() {
                                     required
                                 />
                             </div>
-
                             <div className="flex gap-2 pt-2">
                                 <button
                                     type="button"
