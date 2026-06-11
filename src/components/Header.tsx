@@ -24,6 +24,9 @@ export default function Header() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
+    // 📢 현재 페이지가 공지사항 라우트인지 판별하는 로직
+    const isNoticeActive = pathname.startsWith('/notice');
+
     const fetchUserProfile = async (userId: string) => {
         const { data, error } = await supabase
             .from('profiles')
@@ -83,17 +86,15 @@ export default function Header() {
     };
 
     const displayName = profile?.minecraft_username || user?.email?.split('@')[0];
-
-    // 💡 변경된 부분: 제공해주신 getCompassSrc 함수를 사용하여 유연하게 이미지 주소 매핑
     const compassSrc = getCompassSrc(profile?.compass_rank);
 
     return (
         <>
             <header className="border-b border-slate-800 bg-[#161d2a]/90 px-4 md:px-6 py-4 sticky top-0 z-40 backdrop-blur">
-                {/* 🛠️ max-w 키우고 flex-nowrap 및 gap 조정으로 절대 안 쪼개지게 방어 */}
-                <div className="max-w-5xl mx-auto flex flex-nowrap justify-between items-center gap-4 select-none">
+                {/* 🛠️ max-w를 조금 더 넓혀서(6xl) 공지사항 메뉴가 들어올 공간 확보 */}
+                <div className="max-w-6xl mx-auto flex flex-nowrap justify-between items-center gap-4 select-none">
 
-                    {/* 🛠️ 로고 영역: whitespace-nowrap 추가 및 최대 너비 제한으로 텍스트 보호 */}
+                    {/* 로고 영역 */}
                     <Link href="/" className="flex items-center gap-2 text-lg md:text-xl font-bold text-amber-400 tracking-wider group shrink-0 whitespace-nowrap">
                         <img
                             src="/icon.png"
@@ -106,13 +107,13 @@ export default function Header() {
                         </span>
                     </Link>
 
-                    {/* 🛠️ 메뉴 및 로그인 영역 전체 컨테이너: flex-nowrap과 gap-3~4로 다이어트 */}
-                    <div className="flex flex-nowrap items-center gap-3 md:gap-4 text-xs md:text-sm shrink-0">
-                        <nav className="flex gap-4 md:gap-5 items-center shrink-0 whitespace-nowrap">
+                    {/* 메뉴 및 로그인 영역 전체 컨테이너 */}
+                    <div className="flex flex-nowrap items-center gap-3 md:gap-4 text-xs md:text-sm shrink-0**">
+                        {/* 🛠️ 모바일 브라우저에서도 자리가 모자라 글자가 깨지지 않도록 gap 살짝 다이어트 */}
+                        <nav className="flex gap-3.5 md:gap-5 items-center shrink-0 whitespace-nowrap">
                             <Link href="/" className={`transition ${pathname === '/' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
                                 📈 시세 현황판
                             </Link>
-                            {/* 💡 [추가] 유저들이 직관적으로 누를 수 있도록 이용 가이드 슬롯 매립 */}
                             <Link href="/guide" className={`transition ${pathname === '/guide' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
                                 📖 이용 가이드
                             </Link>
@@ -121,6 +122,21 @@ export default function Header() {
                             </Link>
                             <Link href="/board" className={`transition ${pathname === '/board' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
                                 💬 빌드 공유 게시판
+                            </Link>
+
+                            {/* 📢 [새로 추가된 공지사항 슬롯] */}
+                            <Link
+                                href="/notice"
+                                className={`flex items-center gap-1 transition relative ${
+                                    isNoticeActive ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-amber-300'
+                                }`}
+                            >
+                                <span>📢 공지사항</span>
+                                {/* 알림을 강조하는 미세한 라이브 핑 이펙트 */}
+                                <span className="flex h-1 w-1 relative bottom-1">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-1 w-1 bg-amber-500"></span>
+                                </span>
                             </Link>
                         </nav>
 
@@ -171,7 +187,7 @@ export default function Header() {
                 </div>
             </header>
 
-            {/* 💡 로그인 팝업 (모달) 레이어 정의 */}
+            {/* 로그인 팝업 (모달) 레이어 */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="absolute inset-0" onClick={() => setIsModalOpen(false)} />
