@@ -23,6 +23,7 @@ export default function MyPage() {
     const [isWithdrawing, setIsWithdrawing] = useState(false);
 
     // 👤 Supabase profiles 테이블에서 인게임 마인크래프트 정보 조회
+    // ❌ [수정] select('*')을 해도 DB에 email이 없으므로 안전하게 마인크래프트 정보만 가져옵니다.
     const fetchUserProfile = async (userId: string) => {
         try {
             const { data, error } = await supabase
@@ -87,7 +88,6 @@ export default function MyPage() {
         try {
             setIsWithdrawing(true);
 
-            // 현재 세션의 Access Token(JWT)을 가져옵니다.
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
                 alert('인증 세션이 만료되었습니다. 다시 로그인 후 시도해 주세요.');
@@ -122,7 +122,6 @@ export default function MyPage() {
         }
     };
 
-    // 👑 [수정] 애매한 게이지바를 삭제하고 대량 구매자도 직관적으로 인지 가능한 텍스트 포맷터로 전면 개편
     const getPremiumStatus = () => {
         if (!profileData || !profileData.premium_until) {
             return { isPaid: false, dDayText: '라이선스 없음', badgeColor: 'bg-slate-800 text-slate-400' };
@@ -133,20 +132,17 @@ export default function MyPage() {
         const diffTime = expireDate.getTime() - now.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-        // 기간 만료 처리
         if (diffDays <= 0) {
             return { isPaid: false, dDayText: '기간 만료됨', badgeColor: 'bg-red-500/10 text-red-400 border border-red-500/20' };
         }
 
-        // 남은 기간에 따른 직관적인 배지 스타일링만 유지
         let badgeColor = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
         if (diffDays <= 3) {
-            badgeColor = 'bg-rose-500 text-white animate-pulse'; // 3일 이하는 갱신 독촉 깜빡임
+            badgeColor = 'bg-rose-500 text-white animate-pulse';
         } else if (diffDays <= 7) {
             badgeColor = 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
         }
 
-        // 날짜 가독성 포맷팅 (YYYY-MM-DD HH:mm)
         const formattedDate = expireDate.toLocaleDateString('ko-KR', {
             year: 'numeric',
             month: '2-digit',
@@ -157,7 +153,7 @@ export default function MyPage() {
 
         return {
             isPaid: true,
-            dDayText: `+${diffDays}일 남음`, // 🎯 직관적으로 몇 일 남았는지만 플러스를 붙여서 노출
+            dDayText: `+${diffDays}일 남음`,
             expireDateText: formattedDate,
             badgeColor
         };
@@ -179,8 +175,6 @@ export default function MyPage() {
 
     return (
         <div className="min-h-screen bg-[#0f141c] text-slate-100 font-sans">
-
-            {/* ─── MAIN CONTENTS ─── */}
             <main className="max-w-xl mx-auto px-6 py-10">
                 {user ? (
                     <div className="bg-[#161d2a] border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-6">
@@ -198,11 +192,7 @@ export default function MyPage() {
                                 {/* 🧭 프로필 아바타 영역 */}
                                 <div className="flex items-center gap-4 bg-[#0f141c] p-4 rounded-xl border border-slate-800">
                                     <div className="w-14 h-14 bg-amber-400/5 border border-amber-400/20 rounded-2xl flex items-center justify-center p-2.5 shrink-0 shadow-inner">
-                                        <img
-                                            src={compassSrc}
-                                            alt=""
-                                            className="w-full h-full object-contain"
-                                        />
+                                        <img src={compassSrc} alt="" className="w-full h-full object-contain" />
                                     </div>
                                     <div className="flex-1">
                                         <span className="text-xs text-amber-400/80 font-semibold uppercase tracking-wider block">
@@ -212,7 +202,7 @@ export default function MyPage() {
                                     </div>
                                 </div>
 
-                                {/* 👑 [UI 수정 완료] 애매한 게이지바를 전면 제거하고 정보 중심의 깔끔한 구조로 개편 */}
+                                {/* 라이선스 상태 바 */}
                                 <div className="bg-[#0f141c] p-4 rounded-xl border border-slate-800 flex justify-between items-center shadow-inner">
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-1.5">
@@ -227,7 +217,6 @@ export default function MyPage() {
                                             <p className="text-[11px] text-slate-500">현재 등록된 라이선스 제어권이 없습니다.</p>
                                         )}
                                     </div>
-
                                     <div className="shrink-0">
                                         <span className={`text-xs font-black px-3 py-1.5 rounded-xl ${premium.badgeColor}`}>
                                             {premium.dDayText}
@@ -246,8 +235,9 @@ export default function MyPage() {
 
                                     <div>
                                         <span className="text-[11px] font-bold text-slate-500 uppercase block mb-1">현황판 로그인 계정 (Email)</span>
+                                        {/* 💡 [수정 완료] profileData.email 대신 안전한 인증 세션인 user.email 정보를 매핑합니다. */}
                                         <div className="w-full bg-[#0f141c] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-300">
-                                            ✉️ {profileData.email}
+                                            ✉️ {user?.email || '이메일 정보 없음'}
                                         </div>
                                     </div>
                                 </div>
@@ -359,7 +349,6 @@ export default function MyPage() {
                     </div>
                 </div>
             )}
-
         </div>
     );
 }
