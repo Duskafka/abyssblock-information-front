@@ -38,7 +38,7 @@ export default function NoticeListPage() {
                 <div className="flex items-center gap-3 mb-10 border-b border-slate-800/60 pb-5">
                     <span className="text-2xl">📢</span>
                     <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-wide">
-                        공지사항 <span className="text-amber-400 font-medium text-xs md:text-sm ml-2">Abyssblock Patch & News</span>
+                        공지사항 <span className="text-amber-400 font-medium text-xs md:text-sm ml-2">Abyssblock Information Patch & News</span>
                     </h1>
                 </div>
 

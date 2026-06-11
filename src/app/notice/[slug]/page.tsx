@@ -1,9 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
-import { remark } from 'remark';
-import html from 'remark-html';
 import Link from 'next/link';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export async function generateStaticParams() {
     const directory = path.join(process.cwd(), 'src/content/notice');
@@ -17,18 +17,33 @@ export async function generateStaticParams() {
         }));
 }
 
-// 💡 Next.js 최신 규격에 맞춰 params를 Promise 타입으로 정의합니다.
+// 🎨 기존 빌드 게시판의 디자인 시스템을 그대로 계승한 공지사항 컴포넌트 매핑
+const noticeMarkdownComponents = {
+    h1: ({ ...props }) => <h1 className="text-2xl font-bold text-amber-400 mt-8 mb-4 border-b border-slate-800 pb-2 tracking-tight" {...props} />,
+    h2: ({ ...props }) => <h2 className="text-xl font-bold text-amber-400 mt-6 mb-3 tracking-tight" {...props} />,
+    h3: ({ ...props }) => <h3 className="text-lg font-bold text-amber-500 mt-5 mb-2 tracking-tight" {...props} />,
+    p: ({ ...props }) => <p className="my-4 leading-relaxed text-slate-300 text-[15px] md:text-base" {...props} />,
+    // 약관에서 중요 문구를 주황색 상자로 예쁘게 강조하는 스타일
+    strong: ({ ...props }) => <strong className="font-extrabold text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/10 shadow-sm" {...props} />,
+    em: ({ ...props }) => <em className="italic text-slate-400" {...props} />,
+    ul: ({ ...props }) => <ul className="list-disc pl-6 my-4 space-y-2 text-slate-300 text-[15px] md:text-base" {...props} />,
+    ol: ({ ...props }) => <ol className="list-decimal pl-6 my-4 space-y-2 text-slate-300 text-[15px] md:text-base" {...props} />,
+    li: ({ ...props }) => <li className="marker:text-amber-400 text-slate-300" {...props} />,
+    code: ({ ...props }) => <code className="bg-slate-950 text-amber-300 px-1.5 py-0.5 rounded font-mono text-xs border border-slate-800" {...props} />,
+    // 인용구 텍스트 (약관 요약박스용 고도화)
+    blockquote: ({ ...props }) => (
+        <blockquote className="border-l-4 border-amber-500 pl-4 italic text-slate-300 my-5 bg-amber-500/5 py-3 px-4 rounded-r-xl border-y border-r border-slate-800/40" {...props} />
+    ),
+};
+
 interface Props {
     params: Promise<{ slug: string }>;
 }
 
 export default async function NoticeDetailPage({ params }: Props) {
-    // 💡 [핵심 버그 수정]: params는 비동기로 처리해야 undefined가 발생하지 않습니다.
     const { slug } = await params;
-
     const filePath = path.join(process.cwd(), 'src/content/notice', `${slug}.md`);
 
-    // 파일이 없을 경우를 대비한 방어 로직
     if (!fs.existsSync(filePath)) {
         return (
             <div className="min-h-screen bg-[#0f141c] flex items-center justify-center text-slate-400">
@@ -38,17 +53,14 @@ export default async function NoticeDetailPage({ params }: Props) {
     }
 
     const fileContents = fs.readFileSync(filePath, 'utf8');
+    // matter를 통해 frontmatter(메타데이터)와 실제 본문(content)을 분리
     const { data, content } = matter(fileContents);
 
-    const processedContent = await remark().use(html).process(content);
-    const contentHtml = processedContent.toString();
-
     return (
-        // 💡 [디자인 리뉴얼] 기존 대시보드와 어울리는 다크 테마 적용
         <div className="min-h-screen bg-[#0f141c] text-slate-200">
             <main className="max-w-3xl mx-auto py-12 px-6 animate-fade-in">
 
-                {/* ⬅️ 뒤로가기 버튼 */}
+                {/* 뒤로가기 버튼 */}
                 <Link
                     href="/notice"
                     className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-amber-400 transition mb-6 group"
@@ -57,7 +69,7 @@ export default async function NoticeDetailPage({ params }: Props) {
                     <span>목록으로 돌아가기</span>
                 </Link>
 
-                {/* 📢 게시글 헤더 영역 */}
+                {/* 공지 상단 헤더 */}
                 <div className="space-y-3 pb-6 border-b border-slate-800">
                     <div className="flex items-center gap-2">
                         <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
@@ -72,22 +84,17 @@ export default async function NoticeDetailPage({ params }: Props) {
                     </h1>
                 </div>
 
-                {/* 📝 마크다운 본문 영역 (Tailwind Typography 스타일 가공) */}
-                {/* prose-invert를 주어 다크모드 텍스트가 깨지지 않고 자연스럽게 나오도록 처리했습니다 */}
-                <div className="py-8 border-b border-slate-800/60">
-                    <div
-                        className="prose prose-invert max-w-none text-slate-300
-                            prose-headings:text-white prose-headings:font-bold
-                            prose-strong:text-amber-400 prose-strong:font-bold
-                            prose-links:text-amber-400 hover:prose-links:underline
-                            prose-ul:list-disc prose-ol:list-decimal
-                            prose-code:text-amber-300 prose-code:bg-slate-950 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
-                            leading-relaxed md:leading-loose text-sm md:text-base"
-                        dangerouslySetInnerHTML={{ __html: contentHtml }}
-                    />
+                {/* 📝 옛날 빌드 게시판 방식으로 컴포넌트 맵핑 매립 */}
+                <div className="py-6 border-b border-slate-800/60">
+                    <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={noticeMarkdownComponents}
+                    >
+                        {content}
+                    </ReactMarkdown>
                 </div>
 
-                {/* 🤝 하단 꼬리말 */}
+                {/* 하단 꼬리말 */}
                 <div className="mt-6 flex justify-between items-center text-xs text-slate-500">
                     <span>Abyssblock Info Operations</span>
                     <span>© 2026 Abyssblock. All rights reserved.</span>
