@@ -31,16 +31,43 @@ export default function CropLineChart({ timeline }: CropLineChartProps) {
         setVisibleCrops(prev => ({ ...prev, [cropName]: !prev[cropName] }));
     };
 
-    // 📈 순수 데이터만 깔끔하게 매핑
-    const chartData = timeline.map((slot) => ({
-        name: slot.display_time,
-        '황금 밀': slot.wheat,
-        '황금 비트': slot.beetroot,
-        '황금 당근': slot.carrot,
-        '황금 감자': slot.potato,
-        '황금 수박': slot.melon,
-        '황금 호박': slot.pumpkin,
-    }));
+    // 📈 [알고리즘 대수술]: 실선 구간과 점선 구간의 데이터를 완벽하게 격리
+    const chartData = timeline.map((slot) => {
+        const result: any = {
+            name: slot.display_time,
+        };
+        Object.keys(cropConfigs).forEach((cropName) => {
+            const cropKey = cropConfigs[cropName].key;
+            result[cropName] = slot[cropKey];       // 실선용 데이터
+            result[`${cropName}_dash`] = null;     // 점선용 데이터 초기화
+        });
+        return result;
+    });
+
+    // 각 작물별 타임라인을 추적하여 "끊어진 공백 구간"에만 점선 브릿지 좌표 주입
+    Object.keys(cropConfigs).forEach((cropName) => {
+        const cropKey = cropConfigs[cropName].key;
+        let lastValidIdx = -1;
+
+        for (let i = 0; i < timeline.length; i++) {
+            const currentVal = timeline[i][cropKey];
+            if (currentVal !== null && currentVal !== undefined) {
+                // 직전 실선 끝점과 현재 실선 시작점 사이에 공백(null)이 존재할 때만 작동
+                if (lastValidIdx !== -1 && i - lastValidIdx > 1) {
+                    const startVal = timeline[lastValidIdx][cropKey];
+                    const endVal = currentVal;
+                    const gapSize = i - lastValidIdx;
+
+                    // 오직 이 공백 구간 내에서만 점선이 곡선 형태로 이어지도록 선형 보간 좌표 계산
+                    for (let j = lastValidIdx; j <= i; j++) {
+                        const t = (j - lastValidIdx) / gapSize;
+                        chartData[j][`${cropName}_dash`] = startVal + (endVal - startVal) * t;
+                    }
+                }
+                lastValidIdx = i;
+            }
+        }
+    });
 
     return (
         <div className="bg-[#161d2a] border border-slate-800 rounded-xl p-6 shadow-2xl space-y-4">
@@ -78,44 +105,50 @@ export default function CropLineChart({ timeline }: CropLineChartProps) {
                         <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} />
                         <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} domain={[0, 'auto']} />
 
+                        {/* 툴팁 중복 표기 방지 안전장치 */}
                         <Tooltip
                             contentStyle={{ backgroundColor: '#1f293d', borderColor: '#334155', borderRadius: '8px', color: '#f1f5f9' }}
                             itemStyle={{ fontSize: '12px' }}
                             itemSorter={(item) => cropConfigs[item.name || '']?.order || 99}
+                            formatter={(value, name) => {
+                                // 데이터 가공용 가상 키(_dash)가 툴팁 팝업에 노출되는 것을 완전 차단
+                                if (String(name).endsWith('_dash')) return null;
+                                return [value, name];
+                            }}
                         />
 
                         <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '15px' }} />
 
-                        {/* 1️⃣ 하부 레이어: 데이터가 끊겨도 점선으로 무조건 이어주는 백본 선 */}
+                        {/* 1️⃣ 하부 레이어: 오직 실선이 단절된 공백 위에만 주입되는 '곡선 점선 다리' */}
                         {Object.keys(cropConfigs).map(name => (
                             visibleCrops[name] && (
                                 <Line
                                     key={`${name}_dash`}
-                                    type="linear"
-                                    dataKey={name}
+                                    type="monotone" // 👈 둘 다 예쁜 곡선 형태로 매칭 완료!
+                                    dataKey={`${name}_dash`} // 👈 분리된 점선 전용 데이터 키 사용
                                     stroke={cropConfigs[name].color}
                                     strokeWidth={1.5}
                                     strokeDasharray="4 4"
                                     dot={false}
                                     activeDot={false}
-                                    legendType="none" // 하단 범례 중복 차단
-                                    connectNulls={true}
-                                    tooltipType="none" // 👈 [핵심 수정] 마우스를 올려도 이 점선 데이터는 툴팁 팝업에 계산되지 않도록 제외시킵니다!
+                                    legendType="none"
+                                    connectNulls={false} // 👈 중요: 계산된 공백 마디만 독자적으로 그려야 하므로 false로 제어
+                                    tooltipType="none"
                                 />
                             )
                         ))}
 
-                        {/* 2️⃣ 상부 레이어: 데이터가 있는 구간만 정직하게 덮어씌우는 두꺼운 실선 */}
+                        {/* 2️⃣ 상부 레이어: 데이터가 살아있는 구간만 책임지는 '두꺼운 곡선 실선' */}
                         {Object.keys(cropConfigs).map(name => (
                             visibleCrops[name] && (
                                 <Line
                                     key={name}
-                                    type="linear"
+                                    type="monotone" // 원래 원하셨던 부드러운 곡선 유지
                                     dataKey={name}
                                     stroke={cropConfigs[name].color}
                                     strokeWidth={name === '황금 밀' || name === '황금 수박' ? 3.5 : 3}
                                     activeDot={name === '황금 밀' ? { r: 6 } : true}
-                                    connectNulls={false} // 이 선만 툴팁에 깔끔하게 노출됩니다.
+                                    connectNulls={false} // 데이터가 없으면 선이 완전히 단절됨
                                 />
                             )
                         ))}
