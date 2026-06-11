@@ -11,44 +11,34 @@ const supabase = createBrowserClient(
 
 export default function DashboardPage() {
   const [timeline, setTimeline] = useState<any[]>([]);
-  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [limit, setLimit] = useState<number>(6);
 
-  // 🔐 오직 이메일 로그인 팝업만 관리하는 상태 (헤더와 별개로 작동 가능)
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [authLoading, setAuthLoading] = useState(false);
-
-  // 📡 데이터 가져오는 함수 (시세 타임라인)
+  // 📡 데이터베이스 직접 조회 (Direct Query)
   const fetchTimelineData = async (currentLimit: number = limit) => {
     try {
       setLoading(true);
-      const res = await fetch(`https://aylpfrxixjatlgjxxnin.supabase.co/functions/v1/get-crop-timeline?limit=${currentLimit}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-          'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        }
-      });
+      setErrorMsg(null);
 
-      if (!res.ok) {
-        throw new Error(`서버가 응답하지 않습니다. (Status: ${res.status})`);
-      }
+      // 1. 최신 데이터 N개를 먼저 가져옵니다.
+      const { data, error } = await supabase
+          .from('golden_crop_prices')
+          .select('id, price_time, wheat, beetroot, potato, carrot, pumpkin, melon, registered_by')
+          .order('price_time', { ascending: false })
+          .limit(currentLimit);
 
-      const json = await res.json();
+      if (error) throw error;
 
-      if (json.success) {
-        setTimeline(json.timeline);
-        setErrorMsg(null);
-      } else {
-        setErrorMsg(json.error || '타임라인 로드 실패');
+      if (data) {
+        // 2. 문자열 자체를 비교하여 차트 왼쪽(과거) -> 오른쪽(최신: 13:20) 순으로 완벽 정렬합니다.
+        const sortedData = [...data].sort((a, b) =>
+            a.price_time.localeCompare(b.price_time)
+        );
+        setTimeline(sortedData);
       }
     } catch (err: any) {
-      setErrorMsg('API 통신 에러: ' + err.message);
+      setErrorMsg('데이터베이스 통신 에러: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -58,82 +48,42 @@ export default function DashboardPage() {
     fetchTimelineData(limit);
   }, [limit]);
 
-  // 🔐 Supabase 인증 리스너 (로그인 모달이 성공했을 때의 로직 처리용)
-  useEffect(() => {
-    async function checkUser() {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-    }
-    checkUser();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  // 🔑 클라이언트 인증 기반 이메일 로그인 핸들러
-  const handleLoginSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthLoading(true);
-
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) throw error;
-
-      alert('성공적으로 로그인되었습니다.');
-      setIsModalOpen(false);
-      setEmail('');
-      setPassword('');
-      window.location.reload(); // 헤더 상태 동기화를 위해 가볍게 새로고침
-    } catch (err: any) {
-      alert('서버 에러 메시지: ' + err.message);
-    } finally {
-      setAuthLoading(false);
-    }
-  };
 
   const formatKstTime = (timeframeStr: string) => {
     try {
       const date = new Date(timeframeStr);
-      date.setHours(date.getHours() + 3);
 
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
+      // getHours() 대신 getUTCHours()를 사용하여 9시간이 더해지는 현상을 완전히 막습니다.
+      const hours = String(date.getUTCHours()).padStart(2, '0');
+      const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+
       return `${hours}:${minutes}`;
     } catch (e) {
       return timeframeStr;
     }
   };
 
-  const currentActive = [...timeline].reverse().find((t) => t.status === 'REGISTERED');
+  // 💡 타임라인 배열의 맨 마지막 요소가 무조건 가장 최신 시세(오른쪽 끝값)가 됩니다.
+  const currentActive = timeline[timeline.length - 1];
 
+  // 📈 Recharts 데이터 바인딩 규칙 정의
   const chartData = timeline.map(slot => {
-    const displayTime = formatKstTime(slot.timeframe);
-    if (slot.status === 'REGISTERED') {
-      return {
-        name: displayTime,
-        '황금 밀': slot.prices?.wheat,
-        '황금 비트': slot.prices?.beetroot,
-        '황금 감자': slot.prices?.potato,
-        '황금 당근': slot.prices?.carrot,
-        '황금 호박': slot.prices?.pumpkin,
-        '황금 수박': slot.prices?.melon,
-      };
-    }
-    return { name: displayTime };
+    return {
+      name: formatKstTime(slot.price_time),
+      '황금 밀': slot.wheat,
+      '황금 비트': slot.beetroot,
+      '황금 감자': slot.potato,
+      '황금 당근': slot.carrot,
+      '황금 호박': slot.pumpkin,
+      '황금 수박': slot.melon,
+    };
   });
 
+  // 🏆 랭킹 집계 로직
   const getRankings = () => {
     const counts: { [key: string]: number } = {};
     timeline.forEach(slot => {
-      if (slot.status === 'REGISTERED' && slot.registered_by) {
+      if (slot.registered_by) {
         counts[slot.registered_by] = (counts[slot.registered_by] || 0) + 1;
       }
     });
@@ -155,10 +105,6 @@ export default function DashboardPage() {
 
   return (
       <div className="min-h-screen bg-[#0f141c] text-slate-100 font-sans relative">
-
-        {/* 💡 1. NAVIGATION BAR 헤더 영역이 layout.tsx로 이동했으므로 이곳에서는 완전히 지워졌습니다. */}
-
-        {/* ─── 2. MAIN CONTENTS ─── */}
         <main className="max-w-6xl mx-auto px-6 py-10 space-y-10">
 
           {/* 시세 새로고침 보조 버튼 바 */}
@@ -179,12 +125,12 @@ export default function DashboardPage() {
 
             <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
               {[
-                { label: '🌾 황금 밀', value: currentActive?.prices?.wheat },
-                { label: '🍎 황금 비트', value: currentActive?.prices?.beetroot },
-                { label: '🥔 황금 감자', value: currentActive?.prices?.potato },
-                { label: '🥕 황금 당근', value: currentActive?.prices?.carrot },
-                { label: '🎃 황금 호박', value: currentActive?.prices?.pumpkin },
-                { label: '🍉 황금 수박', value: currentActive?.prices?.melon }
+                { label: '🌾 황금 밀', value: currentActive?.wheat },
+                { label: '🍎 황금 비트', value: currentActive?.beetroot },
+                { label: '🥔 황금 감자', value: currentActive?.potato },
+                { label: '🥕 황금 당근', value: currentActive?.carrot },
+                { label: '🎃 황금 호박', value: currentActive?.pumpkin },
+                { label: '🍉 황금 수박', value: currentActive?.melon }
               ].map((item, i) => (
                   <div key={i} className="bg-[#161d2a] p-4 rounded-xl border border-slate-800 text-center shadow-md">
                     <span className="text-xs text-slate-400 block mb-1">{item.label}</span>
@@ -224,10 +170,10 @@ export default function DashboardPage() {
                 </div>
             )}
 
-            <div className="bg-[#161d2a] border border-slate-800 rounded-xl p-6 shadow-2xl">
+            <div className="bg-[#161d2a] border border-slate-800 rounded-xl p-6 shadow-2xl min-h-[398px] flex items-center justify-center">
               {loading ? (
-                  <div className="text-center py-24 text-slate-500 text-sm">
-                    Edge Function에서 {getTimeLabel(limit)} 시세 데이터를 동기화 중입니다...
+                  <div className="text-center text-slate-500 text-sm">
+                    데이터베이스에서 시세 데이터를 동기화 중입니다...
                   </div>
               ) : (
                   <div className="w-full h-[350px]">
@@ -268,7 +214,7 @@ export default function DashboardPage() {
                   </div>
               ) : rankings.length === 0 ? (
                   <div className="text-center py-8 text-slate-500 text-sm">
-                    선택한 시간({getTimeLabel(limit)}) 내에 제보된 단가 기록이 없습니다. 먼저 제보를 진행해 보세요!
+                    선택한 시간({getTimeLabel(limit)}) 내에 제보된 단가 기록이 없습니다.
                   </div>
               ) : (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -299,34 +245,7 @@ export default function DashboardPage() {
               )}
             </div>
           </section>
-
         </main>
-
-        {/* ─── 🚪 3. 로그인 전용 모달 (인게임 전용 이메일 로그인 창 유지) ─── */}
-        {isModalOpen && (
-            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-              <div className="bg-[#161d2a] border border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-5 relative">
-                <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-slate-500 hover:text-slate-300 text-lg">✕</button>
-                <div className="text-center">
-                  <h3 className="text-xl font-bold text-amber-400">현황판 로그인</h3>
-                  <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">클라이언트에서 발급 및 등록 완료한<br />이메일 계정 정보를 입력하세요.</p>
-                </div>
-                <form onSubmit={handleLoginSubmit} className="space-y-4">
-                  <div>
-                    <label className="text-xs font-semibold text-slate-400 block mb-1">이메일 주소</label>
-                    <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="example@email.com" className="w-full bg-[#0f141c] border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-400" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-400 block mb-1">비밀번호</label>
-                    <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="비밀번호 입력" className="w-full bg-[#0f141c] border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-400" />
-                  </div>
-                  <button type="submit" disabled={authLoading} className="w-full bg-amber-400 hover:bg-amber-500 disabled:bg-slate-700 text-slate-900 font-bold py-2.5 rounded-xl text-sm mt-2">{authLoading ? '로그인 처리 중...' : '로그인'}</button>
-                </form>
-                <p className="text-[11px] text-slate-500 text-center bg-slate-900/40 py-2 rounded-lg border border-slate-800/60">📌 아직 계정이 없다면 먼저 클라이언트 프로그램에서 나침반 정보 연동 및 가입절차를 진행하셔야 합니다.</p>
-              </div>
-            </div>
-        )}
-
       </div>
   );
 }
