@@ -91,7 +91,7 @@ export const AVAILABLE_SHOP_ITEMS: ShopItemConfig[] = [
     },
     {
         id: 'hanger',
-        koreanName: '행거 (Hanger)',
+        koreanName: '치장',
         imageSrc: '/shop/item/hanger.png',
         category: 'ITEM',
     },
@@ -103,7 +103,7 @@ export const AVAILABLE_SHOP_ITEMS: ShopItemConfig[] = [
     },
     {
         id: 'oblivion_coffer',
-        koreanName: '망각의 함(비귀속)',
+        koreanName: '망각의 함 (비귀속)',
         imageSrc: '/shop/item/oblivion_coffer.png',
         category: 'ITEM',
     },
