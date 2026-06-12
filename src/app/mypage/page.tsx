@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 // 🧭 중앙 관리형 나침반 유틸 함수 및 등급 매핑 임포트
 import { getCompassSrc } from '@/app/constants/compass';
-// ⚙️ 올바른 대소문자 경로(UseMyPageData) 매핑 및 훅 가겨오기
+// ⚙️ 올바른 대소문자 경로(UseMyPageData) 매핑 및 훅 가져오기
 import { useMyPageData } from './components/UseMyPageData';
 
 export default function MyPage() {
@@ -143,21 +143,43 @@ export default function MyPage() {
                                         </div>
                                     </div>
 
-                                    <div className="bg-[#0f141c] p-4 rounded-xl border border-slate-800 flex justify-between items-center shadow-inner">
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">자동거래 프리미엄 라이선스</span>
-                                                {premium.isPaid && <span className="text-[10px] bg-amber-400/10 text-amber-400 border border-amber-400/20 px-1.5 py-0.5 rounded-md font-bold">VIP</span>}
+                                    {/* 💳 프리미엄 라이선스 영역: abyss_pass.png 인게임 스타일 레이아웃 결합 */}
+                                    <div className="bg-[#0f141c] p-4 rounded-xl border border-slate-800 flex justify-between items-center shadow-inner relative overflow-hidden group">
+                                        <div className="flex items-center gap-3">
+                                            {/* 🎟️ 어비스 패스 아이콘 홀더 */}
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center p-1.5 border shrink-0 transition-colors ${
+                                                premium.isPaid
+                                                    ? 'bg-amber-400/5 border-amber-500/30'
+                                                    : 'bg-slate-900 border-slate-800 opacity-40'
+                                            }`}>
+                                                <img
+                                                    src={premium.isPaid ? "/pass/emoji_abyss_vip_pass.png" : "/pass/emoji_abyss_pass.png"}
+                                                    alt="Abyss Pass"
+                                                    className="w-full h-full object-contain pixelated"
+                                                    onError={(e) => {
+                                                        // Fallback 처리: 하위 경로 에셋 에러 발생 시 최상위 abyss_pass.png 대응
+                                                        (e.target as HTMLImageElement).src = '/pass/abyss_pass.png';
+                                                    }}
+                                                />
                                             </div>
-                                            {premium.isPaid ? (
-                                                <p className="text-[11px] text-slate-500">
-                                                    만료 기한: <span className="font-mono text-slate-300 font-medium">{premium.expireDateText}</span>
-                                                </p>
-                                            ) : (
-                                                <p className="text-[11px] text-slate-500">현재 등록된 라이선스 제어권이 없습니다.</p>
-                                            )}
+
+                                            <div className="space-y-0.5">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-bold text-slate-300 tracking-wide">
+                                                        {premium.isPaid ? '자동거래 프리미엄 라이선스 활성화' : '자동거래 프리미엄 라이선스'}
+                                                    </span>
+                                                </div>
+                                                {premium.isPaid ? (
+                                                    <p className="text-[11px] text-slate-400">
+                                                        만료일: <span className="font-mono text-amber-400/90 font-medium">{premium.expireDateText}</span>
+                                                    </p>
+                                                ) : (
+                                                    <p className="text-[11px] text-slate-500">현재 등록된 라이선스 제어권이 없습니다.</p>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div className="shrink-0">
+
+                                        <div className="shrink-0 z-10">
                                             <span className={`text-xs font-black px-3 py-1.5 rounded-xl ${premium.badgeColor}`}>
                                                 {premium.dDayText}
                                             </span>
@@ -248,7 +270,7 @@ export default function MyPage() {
                                         )}
                                     </div>
 
-                                    {/* 2. 내가 등록한 아이템 판매글 목록 (★ shop.ts 매퍼와 결합한 결과물 출력) */}
+                                    {/* 2. 내가 등록한 아이템 판매글 목록 */}
                                     <div className="space-y-2">
                                         <span className="font-bold text-emerald-400 block text-[11px]">🛒 장터 판매 물품 ({myItems.length})</span>
                                         {myItems.length === 0 ? (
