@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import CropLineChart from '@/components/CropLineChart'; // 컴포넌트 경로에 맞게 수정하세요.
+import CropLineChart from '@/components/CropLineChart';
 
 const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -81,7 +81,7 @@ export default function DashboardPage() {
   // 상단 단가 요약 카드를 위한 가장 최신 제보 데이터 역추적
   const currentActive = [...timeline].reverse().find(slot => slot.registered_by !== null);
 
-  // 🏆 제보왕 실시간 랭킹 집계 로직 (타이포 버그 클리닝 완료)
+  // 🏆 제보왕 실시간 랭킹 집계 로직
   const getRankings = () => {
     const counts: { [key: string]: number } = {};
     timeline.forEach(slot => {
@@ -109,16 +109,6 @@ export default function DashboardPage() {
       <div className="min-h-screen bg-[#0f141c] text-slate-100 font-sans relative">
         <main className="max-w-6xl mx-auto px-6 py-10 space-y-10">
 
-          {/* 시세 새로고침 보조 버튼 바 */}
-          <div className="flex justify-end">
-            <button
-                onClick={() => fetchTimelineData(limit)}
-                className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl border border-slate-700/60 transition-colors shadow-md flex items-center gap-1.5"
-            >
-              <span>🔄</span> 시세 새로고침
-            </button>
-          </div>
-
           {/* SECTION A: 현재 적용 중인 시세 요약 단가 카드 */}
           <section className="space-y-4">
             <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
@@ -127,42 +117,75 @@ export default function DashboardPage() {
 
             <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
               {[
-                { label: '🌾 황금 밀', value: currentActive?.wheat },
-                { label: '🍎 황금 비트', value: currentActive?.beetroot },
-                { label: '🥕 황금 당근', value: currentActive?.carrot },
-                { label: '🥔 황금 감자', value: currentActive?.potato },
-                { label: '🍉 황금 수박', value: currentActive?.melon },
-                { label: '🎃 황금 호박', value: currentActive?.pumpkin }
+                { label: '황금 밀', value: currentActive?.wheat, icon: '/crop/golden_wheat.png' },
+                { label: '황금 비트', value: currentActive?.beetroot, icon: '/crop/golden_beetroot.png' },
+                { label: '황금 당근', value: currentActive?.carrot, icon: '/crop/golden_carrot.png' },
+                { label: '황금 감자', value: currentActive?.potato, icon: '/crop/golden_potato.png' },
+                { label: '황금 수박', value: currentActive?.melon, icon: '/crop/golden_watermelon.png' },
+                { label: '황금 호박', value: currentActive?.pumpkin, icon: '/crop/golden_pumpkin.png' }
               ].map((item, i) => (
-                  <div key={i} className="bg-[#161d2a] p-4 rounded-xl border border-slate-800 text-center shadow-md">
+                  <div key={i} className="bg-[#161d2a] p-4 rounded-xl border border-slate-800 flex flex-col items-center justify-center text-center shadow-md">
+                    {/* 작물 이미지 아이콘 */}
+                    <div className="w-7 h-7 mb-1 flex items-center justify-center">
+                      <img src={item.icon} alt={item.label} className="w-full h-full object-contain" />
+                    </div>
                     <span className="text-xs text-slate-400 block mb-1">{item.label}</span>
-                    <span className="text-2xl font-black text-amber-400">{item.value ?? '-'} <span className="text-xs text-slate-500 font-normal">EM</span></span>
+
+                    {/* 💎 EM 텍스트를 emerald.png 아이콘 이미지로 변경 및 정렬 */}
+                    <div className="flex items-center justify-center gap-1.5 mt-0.5">
+                      <span className="text-2xl font-black text-amber-400 leading-none">
+                        {item.value ?? '-'}
+                      </span>
+                      {item.value !== null && item.value !== undefined && (
+                          <img
+                              src="/icon/emerald.png"
+                              alt="Emerald"
+                              className="w-4 h-4 object-contain shrink-0"
+                          />
+                      )}
+                    </div>
                   </div>
               ))}
             </div>
           </section>
 
-          {/* SECTION B: 시세 변동 추이 그래프 (분리된 컴포넌트 호출) */}
+          {/* SECTION B: 시세 변동 추이 그래프 */}
           <section className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
                 <span>📈</span> 시세 변동 그래프 ({getTimeLabel(limit)} 실시간 그리드)
               </h2>
 
-              <div className="flex bg-[#161d2a] p-1 rounded-xl border border-slate-800 self-start sm:self-auto shadow-inner">
-                {[6, 12, 24, 36, 72].map((timeLimit) => (
-                    <button
-                        key={timeLimit}
-                        onClick={() => setLimit(timeLimit)}
-                        className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
-                            limit === timeLimit
-                                ? 'bg-amber-400 text-slate-900 font-bold shadow'
-                                : 'text-slate-400 hover:text-slate-200'
-                        }`}
-                    >
-                      {timeLimit === 6 ? '2H' : timeLimit === 12 ? '4H' : timeLimit === 24 ? '8H' : timeLimit === 36 ? '12H' : '24H'}
-                    </button>
-                ))}
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                {/* 시간 범위 필터 제어 탭 */}
+                <div className="flex bg-[#161d2a] p-1 rounded-xl border border-slate-800 shadow-inner">
+                  {[6, 12, 24, 36, 72].map((timeLimit) => (
+                      <button
+                          key={timeLimit}
+                          onClick={() => setLimit(timeLimit)}
+                          className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
+                              limit === timeLimit
+                                  ? 'bg-amber-400 text-slate-900 font-bold shadow'
+                                  : 'text-slate-400 hover:text-slate-200'
+                          }`}
+                      >
+                        {timeLimit === 6 ? '2H' : timeLimit === 12 ? '4H' : timeLimit === 24 ? '8H' : timeLimit === 36 ? '12H' : '24H'}
+                      </button>
+                  ))}
+                </div>
+
+                {/* 새로고침 버튼 */}
+                <button
+                    onClick={() => fetchTimelineData(limit)}
+                    title="시세 새로고침"
+                    className="p-2.5 bg-[#161d2a] hover:bg-slate-800 border border-slate-800 rounded-xl transition shadow-md group flex items-center justify-center shrink-0"
+                >
+                  <img
+                      src="/icon/refresh.png"
+                      alt="새로고침"
+                      className="w-4 h-4 object-contain opacity-70 group-hover:opacity-100 group-hover:rotate-180 transition-all duration-300 ease-out"
+                  />
+                </button>
               </div>
             </div>
 
