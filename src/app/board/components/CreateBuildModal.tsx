@@ -192,6 +192,11 @@ export default function CreateBuildModal({ user, relics, supabase, onClose, onSu
     const shopRelicsPool = filteredRelicsByJob.filter(r => r.grade === 'shop');
     const sideRelicsPool = filteredRelicsByJob.filter(r => r.grade === 'side');
 
+    // ⛔ 핵심 코어 유물 실시간 중복 제거 필터링 추가
+    const bossRelicsForMain1 = bossRelics.filter(r => r.id !== main2 && r.id !== main3);
+    const bossRelicsForMain2 = bossRelics.filter(r => r.id !== main1 && r.id !== main3);
+    const bossRelicsForMain3 = bossRelics.filter(r => r.id !== main1 && r.id !== main2);
+
     return (
         /* 2️⃣ 창 크기가 작아질 때 작동하는 모달 전체 컨테이너 스크롤바 커스텀 적용 */
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in">
@@ -238,9 +243,10 @@ export default function CreateBuildModal({ user, relics, supabase, onClose, onSu
                             <div className="space-y-3 bg-[#0f141c]/40 p-3 rounded-xl border border-slate-800">
                                 <span className="font-bold text-amber-400 block text-[11px]">👑 핵심 코어 유물 (BOSS)</span>
                                 <div className="space-y-2.5">
-                                    <CustomRelicSelect label="첫 번째 코어 유물" relics={bossRelics} selectedValue={main1} onChange={setMain1} />
-                                    <CustomRelicSelect label="두 번째 코어 유물" relics={bossRelics} selectedValue={main2} onChange={setMain2} />
-                                    <CustomRelicSelect label="세 번째 코어 유물" relics={bossRelics} selectedValue={main3} onChange={setMain3} />
+                                    {/* 각 드롭다운 컴포넌트에 중복 제거된 유물 목록 바인딩 */}
+                                    <CustomRelicSelect label="첫 번째 코어 유물" relics={bossRelicsForMain1} selectedValue={main1} onChange={setMain1} />
+                                    <CustomRelicSelect label="두 번째 코어 유물" relics={bossRelicsForMain2} selectedValue={main2} onChange={setMain2} />
+                                    <CustomRelicSelect label="세 번째 코어 유물" relics={bossRelicsForMain3} selectedValue={main3} onChange={setMain3} />
                                 </div>
                             </div>
 
