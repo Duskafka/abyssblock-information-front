@@ -24,8 +24,16 @@ export default function Header() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // 📢 현재 페이지가 공지사항 라우트인지 판별하는 로직
+    // 💡 커뮤니티 드롭다운 수동 제어용 (Tailwind group-hover 외에 포커스/모바일 대응용 안전장치)
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+    // 📢 카테고리 판별 로직들
     const isNoticeActive = pathname.startsWith('/notice');
+    const isBoardActive = pathname.startsWith('/board');
+    const isShopActive = pathname.startsWith('/shop');
+
+    // 세 항목 중 하나라도 활성화되어 있으면 '커뮤니티' 메인을 하이라이트
+    const isCommunityActive = isNoticeActive || isBoardActive || isShopActive;
 
     const fetchUserProfile = async (userId: string) => {
         const { data, error } = await supabase
@@ -69,7 +77,7 @@ export default function Header() {
             password: password,
         });
 
-        setLoading(false);
+        setLoading(true);
         if (error) {
             alert('로그인 실패: 이메일 또는 비밀번호를 확인해 주세요.\n(' + error.message + ')');
         } else {
@@ -91,7 +99,6 @@ export default function Header() {
     return (
         <>
             <header className="border-b border-slate-800 bg-[#161d2a]/90 px-4 md:px-6 py-4 sticky top-0 z-40 backdrop-blur">
-                {/* 🛠️ max-w를 조금 더 넓혀서(6xl) 공지사항 메뉴가 들어올 공간 확보 */}
                 <div className="max-w-6xl mx-auto flex flex-nowrap justify-between items-center gap-4 select-none">
 
                     {/* 로고 영역 */}
@@ -108,36 +115,75 @@ export default function Header() {
                     </Link>
 
                     {/* 메뉴 및 로그인 영역 전체 컨테이너 */}
-                    <div className="flex flex-nowrap items-center gap-3 md:gap-4 text-xs md:text-sm shrink-0**">
-                        {/* 🛠️ 모바일 브라우저에서도 자리가 모자라 글자가 깨지지 않도록 gap 살짝 다이어트 */}
-                        <nav className="flex gap-3.5 md:gap-5 items-center shrink-0 whitespace-nowrap">
+                    <div className="flex flex-nowrap items-center gap-3 md:gap-4 text-xs md:text-sm shrink-0">
+                        <nav className="flex gap-3.5 md:gap-6 items-center shrink-0 whitespace-nowrap">
                             <Link href="/" className={`transition ${pathname === '/' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
                                 📈 시세 현황판
-                            </Link>
-                            <Link href="/guide" className={`transition ${pathname === '/guide' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
-                                📖 이용 가이드
                             </Link>
                             <Link href="/relics" className={`transition ${pathname === '/relics' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
                                 📜 유물 도감
                             </Link>
-                            <Link href="/board" className={`transition ${pathname === '/board' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
-                                💬 빌드 공유 게시판
-                            </Link>
 
-                            {/* 📢 [새로 추가된 공지사항 슬롯] */}
-                            <Link
-                                href="/notice"
-                                className={`flex items-center gap-1 transition relative ${
-                                    isNoticeActive ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-amber-300'
-                                }`}
+                            {/* 💡 [대폭 수정] 커뮤니티 대형 드롭다운 메뉴 슬롯 */}
+                            <div
+                                className="relative group py-2"
+                                onMouseEnter={() => setIsDropdownOpen(true)}
+                                onMouseLeave={() => setIsDropdownOpen(false)}
                             >
-                                <span>📢 공지사항</span>
-                                {/* 알림을 강조하는 미세한 라이브 핑 이펙트 */}
-                                <span className="flex h-1 w-1 relative bottom-1">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-1 w-1 bg-amber-500"></span>
-                                </span>
-                            </Link>
+                                <button
+                                    className={`flex items-center gap-1 transition focus:outline-none ${
+                                        isCommunityActive ? 'text-amber-400 font-bold' : 'text-slate-400 group-hover:text-slate-200'
+                                    }`}
+                                >
+                                    <span>💬 커뮤니티</span>
+                                    {/* 드롭다운 화살표 아이콘 */}
+                                    <svg className={`w-3 h-3 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180 text-amber-400' : 'text-slate-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+
+                                {/* 🎁 드롭다운 서브메뉴 박스 */}
+                                <div className={`absolute left-0 mt-2 w-44 bg-[#161d2a] border border-slate-800 rounded-xl shadow-2xl p-1.5 transition-all duration-200 origin-top z-50 ${
+                                    isDropdownOpen
+                                        ? 'opacity-100 scale-100 visible translate-y-0'
+                                        : 'opacity-0 scale-95 invisible -translate-y-2 pointer-events-none'
+                                }`}>
+                                    <Link
+                                        href="/notice"
+                                        onClick={() => setIsDropdownOpen(false)}
+                                        className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
+                                            isNoticeActive ? 'bg-amber-400/10 text-amber-400 font-bold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                                        }`}
+                                    >
+                                        <span className="flex items-center gap-1.5">📢 공지사항</span>
+                                        {/* 미세한 알림 핑 이펙트 */}
+                                        <span className="flex h-1.5 w-1.5 relative">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                                        </span>
+                                    </Link>
+
+                                    <Link
+                                        href="/board"
+                                        onClick={() => setIsDropdownOpen(false)}
+                                        className={`flex items-center px-3 py-2 rounded-lg text-xs font-medium transition ${
+                                            isBoardActive ? 'bg-amber-400/10 text-amber-400 font-bold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                                        }`}
+                                    >
+                                        🛡️ 빌드 공유 게시판
+                                    </Link>
+
+                                    <Link
+                                        href="/shop"
+                                        onClick={() => setIsDropdownOpen(false)}
+                                        className={`flex items-center px-3 py-2 rounded-lg text-xs font-medium transition ${
+                                            isShopActive ? 'bg-amber-400/10 text-amber-400 font-bold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                                        }`}
+                                    >
+                                        🛒 어비스 연동 장터
+                                    </Link>
+                                </div>
+                            </div>
                         </nav>
 
                         <div className="h-4 w-[1px] bg-slate-800 shrink-0" />
