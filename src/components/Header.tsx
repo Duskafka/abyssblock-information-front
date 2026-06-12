@@ -24,16 +24,20 @@ export default function Header() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // 💡 커뮤니티 드롭다운 수동 제어용 (Tailwind group-hover 외에 포커스/모바일 대응용 안전장치)
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    // 💡 드롭다운 수동 제어용 상태 관리
+    const [isCommunityDropdownOpen, setIsCommunityDropdownOpen] = useState(false);
+    const [isGameDropdownOpen, setIsGameDropdownOpen] = useState(false); // 🕹️ 미니게임 드롭다운 상태 추가
 
-    // 📢 카테고리 판별 로직들
+    // 📢 카테고리 활성화 판별 로직들
     const isNoticeActive = pathname.startsWith('/notice');
     const isBoardActive = pathname.startsWith('/board');
     const isShopActive = pathname.startsWith('/shop');
-
-    // 세 항목 중 하나라도 활성화되어 있으면 '커뮤니티' 메인을 하이라이트
     const isCommunityActive = isNoticeActive || isBoardActive || isShopActive;
+
+    // 🕹️ 미니게임 카테고리 활성화 판별 로직 (하위 모든 게임 주소 포함)
+    const isArtifactGameActive = pathname.startsWith('/games/artifact');
+    // const isNewGameActive = pathname.startsWith('/games/새게임'); // 추후 확장용
+    const isGameActive = pathname.startsWith('/games');
 
     const fetchUserProfile = async (userId: string) => {
         const { data, error } = await supabase
@@ -77,7 +81,7 @@ export default function Header() {
             password: password,
         });
 
-        setLoading(true);
+        setLoading(false); // 상태 수정 반영
         if (error) {
             alert('로그인 실패: 이메일 또는 비밀번호를 확인해 주세요.\n(' + error.message + ')');
         } else {
@@ -124,11 +128,57 @@ export default function Header() {
                                 📜 유물 도감
                             </Link>
 
-                            {/* 💡 [대폭 수정] 커뮤니티 대형 드롭다운 메뉴 슬롯 */}
+                            {/* 🕹️ [기획 수정] 대형 미니게임 드롭다운 메뉴 슬롯 추가 */}
                             <div
                                 className="relative group py-2"
-                                onMouseEnter={() => setIsDropdownOpen(true)}
-                                onMouseLeave={() => setIsDropdownOpen(false)}
+                                onMouseEnter={() => setIsGameDropdownOpen(true)}
+                                onMouseLeave={() => setIsGameDropdownOpen(false)}
+                            >
+                                <button
+                                    className={`flex items-center gap-1 transition focus:outline-none ${
+                                        isGameActive ? 'text-amber-400 font-bold' : 'text-slate-400 group-hover:text-slate-200'
+                                    }`}
+                                >
+                                    <span>🕹️ 미니게임</span>
+                                    <svg className={`w-3 h-3 transition-transform duration-200 ${isGameDropdownOpen ? 'rotate-180 text-amber-400' : 'text-slate-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+
+                                {/* 🎁 미니게임 서브메뉴 박스 */}
+                                <div className={`absolute left-0 mt-2 w-48 bg-[#161d2a] border border-slate-800 rounded-xl shadow-2xl p-1.5 transition-all duration-200 origin-top z-50 ${
+                                    isGameDropdownOpen
+                                        ? 'opacity-100 scale-100 visible translate-y-0'
+                                        : 'opacity-0 scale-95 invisible -translate-y-2 pointer-events-none'
+                                }`}>
+                                    <Link
+                                        href="/games/artifact"
+                                        onClick={() => setIsGameDropdownOpen(false)}
+                                        className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
+                                            isArtifactGameActive ? 'bg-amber-400/10 text-amber-400 font-bold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                                        }`}
+                                    >
+                                        <span className="flex items-center gap-1.5">🔮 유물 인챈트 제단</span>
+                                        <span className="text-[9px] bg-amber-400/20 text-amber-400 px-1 py-0.5 rounded font-bold">HOT</span>
+                                    </Link>
+
+                                    {/* 💡 추후 미니게임이 추가될 때 여기에 똑같이 복사해서 넣으면 확장 끝! */}
+                                    {/* <Link
+                                        href="/games/roulette"
+                                        onClick={() => setIsGameDropdownOpen(false)}
+                                        className="flex items-center px-3 py-2 rounded-lg text-xs font-medium text-slate-500 cursor-not-allowed"
+                                    >
+                                        🎰 럭키 룰렛 (준비중)
+                                    </Link>
+                                    */}
+                                </div>
+                            </div>
+
+                            {/* 커뮤니티 드롭다운 메뉴 슬롯 */}
+                            <div
+                                className="relative group py-2"
+                                onMouseEnter={() => setIsCommunityDropdownOpen(true)}
+                                onMouseLeave={() => setIsCommunityDropdownOpen(false)}
                             >
                                 <button
                                     className={`flex items-center gap-1 transition focus:outline-none ${
@@ -136,27 +186,25 @@ export default function Header() {
                                     }`}
                                 >
                                     <span>💬 커뮤니티</span>
-                                    {/* 드롭다운 화살표 아이콘 */}
-                                    <svg className={`w-3 h-3 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180 text-amber-400' : 'text-slate-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className={`w-3 h-3 transition-transform duration-200 ${isCommunityDropdownOpen ? 'rotate-180 text-amber-400' : 'text-slate-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
                                     </svg>
                                 </button>
 
-                                {/* 🎁 드롭다운 서브메뉴 박스 */}
+                                {/* 드롭다운 서브메뉴 박스 */}
                                 <div className={`absolute left-0 mt-2 w-44 bg-[#161d2a] border border-slate-800 rounded-xl shadow-2xl p-1.5 transition-all duration-200 origin-top z-50 ${
-                                    isDropdownOpen
+                                    isCommunityDropdownOpen
                                         ? 'opacity-100 scale-100 visible translate-y-0'
                                         : 'opacity-0 scale-95 invisible -translate-y-2 pointer-events-none'
                                 }`}>
                                     <Link
                                         href="/notice"
-                                        onClick={() => setIsDropdownOpen(false)}
+                                        onClick={() => setIsCommunityDropdownOpen(false)}
                                         className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
                                             isNoticeActive ? 'bg-amber-400/10 text-amber-400 font-bold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
                                         }`}
                                     >
                                         <span className="flex items-center gap-1.5">📢 공지사항</span>
-                                        {/* 미세한 알림 핑 이펙트 */}
                                         <span className="flex h-1.5 w-1.5 relative">
                                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                                             <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
@@ -165,7 +213,7 @@ export default function Header() {
 
                                     <Link
                                         href="/board"
-                                        onClick={() => setIsDropdownOpen(false)}
+                                        onClick={() => setIsCommunityDropdownOpen(false)}
                                         className={`flex items-center px-3 py-2 rounded-lg text-xs font-medium transition ${
                                             isBoardActive ? 'bg-amber-400/10 text-amber-400 font-bold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
                                         }`}
@@ -175,7 +223,7 @@ export default function Header() {
 
                                     <Link
                                         href="/shop"
-                                        onClick={() => setIsDropdownOpen(false)}
+                                        onClick={() => setIsCommunityDropdownOpen(false)}
                                         className={`flex items-center px-3 py-2 rounded-lg text-xs font-medium transition ${
                                             isShopActive ? 'bg-amber-400/10 text-amber-400 font-bold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
                                         }`}
