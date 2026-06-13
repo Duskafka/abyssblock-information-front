@@ -26,10 +26,54 @@ export default function MyPage() {
     const [confirmText, setConfirmText] = useState('');
     const [isWithdrawing, setIsWithdrawing] = useState(false);
 
+    // 🌾 프리미엄 패스 발급 상태 관리
+    const [isClaiming, setIsClaiming] = useState(false);
+
+    const GOAL_COUNT = 5; // 프리미엄 보상 발급 기준 조건 횟수
+    const isRewardReady = profileData ? profileData.crop_share_count >= GOAL_COUNT : false;
+
     const handleLogout = async () => {
         const { error } = await supabase.auth.signOut();
         if (error) alert('로그아웃 에러: ' + error.message);
         else alert('로그아웃 되었습니다.');
+    };
+
+    // 🎁 프리미엄 패스 발급 함수 (새로운 엣지 펑션 연동)
+    const handleClaimPremiumPass = async () => {
+        if (!isRewardReady || isClaiming) return;
+
+        try {
+            setIsClaiming(true);
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                alert('인증 세션이 만료되었습니다. 다시 로그인 후 시도해 주세요.');
+                return;
+            }
+
+            // 생성하신 새로운 Edge Function 엔드포인트 호출
+            const response = await fetch('https://aylpfrxixjatlgjxxnin.supabase.co/functions/v1/crop-price-share-reward', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                }
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || '보상 발급 중 오류가 발생했습니다.');
+            }
+
+            alert('🎉 프리미엄 라이선스가 하루(24시간) 충전되었습니다! 인게임 및 프로필 카드를 확인해 보세요.');
+
+            // 데이터 최신화를 위해 브라우저 새로고침 실행
+            window.location.reload();
+        } catch (err: any) {
+            alert('보상 수령 실패: ' + err.message);
+        } finally {
+            setIsClaiming(false);
+        }
     };
 
     // 🪓 회원 탈퇴 함수
@@ -143,10 +187,9 @@ export default function MyPage() {
                                         </div>
                                     </div>
 
-                                    {/* 💳 프리미엄 라이선스 영역: abyss_pass.png 인게임 스타일 레이아웃 결합 */}
+                                    {/* 💳 프리미엄 라이선스 영역 */}
                                     <div className="bg-[#0f141c] p-4 rounded-xl border border-slate-800 flex justify-between items-center shadow-inner relative overflow-hidden group">
                                         <div className="flex items-center gap-3">
-                                            {/* 🎟️ 어비스 패스 아이콘 홀더 */}
                                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center p-1.5 border shrink-0 transition-colors ${
                                                 premium.isPaid
                                                     ? 'bg-amber-400/5 border-amber-500/30'
@@ -157,7 +200,6 @@ export default function MyPage() {
                                                     alt="Abyss Pass"
                                                     className="w-full h-full object-contain pixelated"
                                                     onError={(e) => {
-                                                        // Fallback 처리: 하위 경로 에셋 에러 발생 시 최상위 abyss_pass.png 대응
                                                         (e.target as HTMLImageElement).src = '/pass/abyss_pass.png';
                                                     }}
                                                 />
@@ -236,6 +278,71 @@ export default function MyPage() {
                             </div>
                         </div>
 
+                        {/* 🌾 황금 작물 시세 공유 미션 달성 및 라이선스 발급 섹션 */}
+                        {profileData && (
+                            <div className="bg-[#161d2a] border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
+                                <div className="border-b border-slate-800 pb-3">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="text-sm font-bold text-amber-400 flex items-center gap-1.5">
+                                            <span>🌾</span> 하루 치 시세 데이터 완성 미션
+                                        </h3>
+                                        <span className="text-[10px] text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded font-mono">
+                    ⏱️ 20분 주기 (하루 총 72회)
+                </span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                                        서버의 <span className="text-amber-400/90 font-medium">24시간 분량 시세 데이터(72회)</span> 축적에 기여하고 자동거래 프리미엄 라이선스를 획득하세요.
+                                        누적된 기여도가 기준치에 도달하면 보상을 청구할 수 있습니다.
+                                    </p>
+                                </div>
+
+                                {/* 게이지바 레이아웃 (GOAL_COUNT = 72 적용) */}
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-xs font-mono">
+                                        <span className="text-slate-400 font-semibold">내 누적 기여도</span>
+                                        <span className={`font-bold ${profileData.crop_share_count >= 72 ? 'text-emerald-400' : 'text-slate-300'}`}>
+                    {profileData.crop_share_count} / 72 회
+                </span>
+                                    </div>
+                                    <div className="w-full bg-[#0f141c] rounded-full h-2.5 overflow-hidden border border-slate-800">
+                                        <div
+                                            className={`h-full transition-all duration-500 rounded-full ${
+                                                profileData.crop_share_count >= 72
+                                                    ? 'bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_8px_rgba(16,185,129,0.4)]'
+                                                    : 'bg-amber-400'
+                                            }`}
+                                            style={{ width: `${Math.min((profileData.crop_share_count / 72) * 100, 100)}%` }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* 보상 기프트 박스 컨트롤 바 */}
+                                <div className="bg-[#0f141c] border border-slate-800 p-4 rounded-xl flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+                                    <div className="text-xs space-y-0.5">
+                                        <div className="text-slate-300 font-bold flex items-center gap-1">
+                                            <span>🎁</span> 미션 보상: <span className="text-amber-400 font-extrabold">프리미엄 라이선스 (1일권)</span>
+                                        </div>
+                                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                                            발급 버튼 클릭 시 보유 기여 카운트가 72회 차감됩니다. <br />
+                                            <span className="text-amber-500/90 font-medium">* 경제 밸런스 보호를 위해 라이선스 발급은 하루에 단 1회만 허용됩니다.</span>
+                                        </p>
+                                    </div>
+
+                                    <button
+                                        onClick={handleClaimPremiumPass}
+                                        disabled={profileData.crop_share_count < 72 || isClaiming}
+                                        className={`px-5 py-2.5 rounded-xl text-xs font-black tracking-wide transition-all duration-200 text-center whitespace-nowrap focus:outline-none ${
+                                            profileData.crop_share_count >= 72 && !isClaiming
+                                                ? 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-900 font-extrabold shadow-lg cursor-pointer active:scale-98'
+                                                : 'bg-slate-800 text-slate-500 border border-slate-800/40 cursor-not-allowed font-medium'
+                                        }`}
+                                    >
+                                        {isClaiming ? '발급 통신 중..' : profileData.crop_share_count >= 72 ? '🎁 패스 발급하기' : '조건 미달성'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         {/* 📂 하단 내 활동 내역 요약 피드 레이아웃 */}
                         <div className="bg-[#161d2a] border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-6">
                             <div className="border-b border-slate-800 pb-3">
@@ -249,7 +356,6 @@ export default function MyPage() {
                                 <p className="text-xs text-slate-500 text-center py-6">콘텐츠 내역을 불러오는 중입니다...</p>
                             ) : (
                                 <div className="space-y-5 text-xs">
-
                                     {/* 1. 내가 공유한 빌드 공유글 목록 */}
                                     <div className="space-y-2">
                                         <span className="font-bold text-amber-400 block text-[11px]">📝 공유한 빌드 공략 ({myPosts.length})</span>
@@ -294,7 +400,6 @@ export default function MyPage() {
                                             </div>
                                         )}
                                     </div>
-
                                 </div>
                             )}
                         </div>
