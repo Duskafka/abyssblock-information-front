@@ -28,15 +28,15 @@ export default function Header() {
     const [isCommunityDropdownOpen, setIsCommunityDropdownOpen] = useState(false);
     const [isGameDropdownOpen, setIsGameDropdownOpen] = useState(false); // 🕹️ 미니게임 드롭다운 상태 추가
 
-    // 📢 카테고리 활성화 판별 로직들
+    // 📢 커뮤니티 카테고리 활성화 판별 로직들
     const isNoticeActive = pathname.startsWith('/notice');
     const isBoardActive = pathname.startsWith('/board');
     const isShopActive = pathname.startsWith('/shop');
     const isCommunityActive = isNoticeActive || isBoardActive || isShopActive;
 
-    // 🕹️ 미니게임 카테고리 활성화 판별 로직 (하위 모든 게임 주소 포함)
+    // 🕹️ 미니게임 및 도구 카테고리 활성화 판별 로직
     const isArtifactGameActive = pathname.startsWith('/games/artifact');
-    // const isNewGameActive = pathname.startsWith('/games/새게임'); // 추후 확장용
+    const isCalculatorGameActive = pathname.startsWith('/games/calculator'); // 🛡️ 데미지 계산기 판별 추가
     const isGameActive = pathname.startsWith('/games');
 
     const fetchUserProfile = async (userId: string) => {
@@ -81,11 +81,11 @@ export default function Header() {
             password: password,
         });
 
-        setLoading(false); // 상태 수정 반영
+        setLoading(false);
         if (error) {
             alert('로그인 실패: 이메일 또는 비밀번호를 확인해 주세요.\n(' + error.message + ')');
         } else {
-            setIsModalOpen(false); // 성공 시 팝업 닫기
+            setIsModalOpen(false);
             setEmail('');
             setPassword('');
         }
@@ -128,7 +128,7 @@ export default function Header() {
                                 📜 유물 도감
                             </Link>
 
-                            {/* 🕹️ [기획 수정] 대형 미니게임 드롭다운 메뉴 슬롯 추가 */}
+                            {/* 🕹️ 미니게임 & 인게임 시뮬레이터 드롭다운 메뉴 */}
                             <div
                                 className="relative group py-2"
                                 onMouseEnter={() => setIsGameDropdownOpen(true)}
@@ -146,7 +146,7 @@ export default function Header() {
                                 </button>
 
                                 {/* 🎁 미니게임 서브메뉴 박스 */}
-                                <div className={`absolute left-0 mt-2 w-48 bg-[#161d2a] border border-slate-800 rounded-xl shadow-2xl p-1.5 transition-all duration-200 origin-top z-50 ${
+                                <div className={`absolute left-0 mt-2 w-52 bg-[#161d2a] border border-slate-800 rounded-xl shadow-2xl p-1.5 transition-all duration-200 origin-top z-50 ${
                                     isGameDropdownOpen
                                         ? 'opacity-100 scale-100 visible translate-y-0'
                                         : 'opacity-0 scale-95 invisible -translate-y-2 pointer-events-none'
@@ -162,15 +162,16 @@ export default function Header() {
                                         <span className="text-[9px] bg-amber-400/20 text-amber-400 px-1 py-0.5 rounded font-bold">HOT</span>
                                     </Link>
 
-                                    {/* 💡 추후 미니게임이 추가될 때 여기에 똑같이 복사해서 넣으면 확장 끝! */}
-                                    {/* <Link
-                                        href="/games/roulette"
+                                    {/* 🛡️ 새로 제작 완료된 데미지 시뮬레이터 추가 슬롯 */}
+                                    <Link
+                                        href="/games/calculator"
                                         onClick={() => setIsGameDropdownOpen(false)}
-                                        className="flex items-center px-3 py-2 rounded-lg text-xs font-medium text-slate-500 cursor-not-allowed"
+                                        className={`flex items-center px-3 py-2 rounded-lg text-xs font-medium transition ${
+                                            isCalculatorGameActive ? 'bg-amber-400/10 text-amber-400 font-bold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                                        }`}
                                     >
-                                        🎰 럭키 룰렛 (준비중)
+                                        🛡️ 데미지 감산 시뮬레이터
                                     </Link>
-                                    */}
                                 </div>
                             </div>
 

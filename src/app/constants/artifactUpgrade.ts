@@ -17,14 +17,14 @@ export interface ArtifactConfig {
 export const UPGRADE_TARGET_ARTIFACTS: ArtifactConfig[] = [
     {
         id: 'blazing_shield',
-        koreanName: '화염의 방패',
+        koreanName: '타오르는의 방패',
         imageSrc: '/shop/artifact/blazing_shield.png',
         category: 'ARTIFACT',
         mainOption: {
             name: '화염 장벽',
-            renderDescription: (v) => `30 이상의 받는 데미지 ${v} 감소`,
+            renderDescription: (v) => `30 이상의 받는 데미지 물리 ${v} 감소`,
             // 🔥 화염의 방패 고유 주옵션 수치 (예시: 0강 15% 시작, 강당 3%씩)
-            values: [15.0, 18.0, 21.0, 24.0, 27.0, 30.0, 33.0, 36.0, 39.0, 42.0, 45.0]
+            values: [1, 3, 5, 7, 10, 13, 16, 20, 25, 30]
         }
     },
     {
@@ -34,9 +34,9 @@ export const UPGRADE_TARGET_ARTIFACTS: ArtifactConfig[] = [
         category: 'ARTIFACT',
         mainOption: {
             name: '왕가의 가호',
-            renderDescription: (v) => `받는 바법 피해 ${v}% 감소`,
+            renderDescription: (v) => `받는 마법 피해 ${v}% 감소`,
             // 👑 국왕의 휘장 고유 주옵션 수치 (예시: 0강 8% 시작, 강당 2%씩)
-            values: [8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0, 24.0, 26.0, 28.0]
+            values: [1, 3, 5, 7, 10, 13, 16, 20, 25, 30]
         }
     },
     {
@@ -45,10 +45,10 @@ export const UPGRADE_TARGET_ARTIFACTS: ArtifactConfig[] = [
         imageSrc: '/shop/artifact/liberated_spirit.png',
         category: 'ARTIFACT',
         mainOption: {
-            name: '원혼의 복수',
+            name: '망령의 복수',
             renderDescription: (v) => `보스 몬스터에게 주는 피해량 ${v}% 증가`,
             // 👻 해방된 영혼 고유 주옵션 수치 (예시: 0강 10% 시작, 강당 2.5%씩)
-            values: [10.0, 12.5, 15.0, 17.5, 20.0, 22.5, 25.0, 27.5, 30.0, 32.5, 80.0]
+            values: [1, 3, 7, 11, 16, 23, 32, 44, 60, 80]
         }
     },
     {
@@ -57,7 +57,7 @@ export const UPGRADE_TARGET_ARTIFACTS: ArtifactConfig[] = [
         imageSrc: '/shop/artifact/oasis_essence.png',
         category: 'ARTIFACT',
         mainOption: {
-            name: '마나의 오아시스',
+            name: '수호의 물결',
             renderDescription: (v) => `받는 화염 피해 ${v} 감소`,
             values: [5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 30.0]
         }
@@ -68,9 +68,9 @@ export const UPGRADE_TARGET_ARTIFACTS: ArtifactConfig[] = [
         imageSrc: '/shop/artifact/relic_resonance_bell.png',
         category: 'ARTIFACT',
         mainOption: {
-            name: '공명 주파수',
+            name: '과거의 영광',
             renderDescription: (v) => `모든 데미지 ${v}% 증가`,
-            values: [2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 40.0]
+            values: [1, 3, 6, 9, 13, 17, 21, 27, 33, 40]
         }
     },
     {
@@ -79,9 +79,9 @@ export const UPGRADE_TARGET_ARTIFACTS: ArtifactConfig[] = [
         imageSrc: '/shop/artifact/soul_skein.png',
         category: 'ARTIFACT',
         mainOption: {
-            name: '시간의 실타래',
+            name: '영혼 포획',
             renderDescription: (v) => `1분마다 데미지 ${v}% 증가. 최대 5분`,
-            values: [4.0, 4.8, 5.6, 6.4, 7.2, 8.0, 8.8, 9.6, 10.4, 11.2, 12.0]
+            values: [2.0, 2.4, 2.8, 3.2, 3.8, 4.4, 5.2, 6, 7, 8]
         }
     },
     {
@@ -90,9 +90,9 @@ export const UPGRADE_TARGET_ARTIFACTS: ArtifactConfig[] = [
         imageSrc: '/shop/artifact/traitor_golden_tooth.png',
         category: 'ARTIFACT',
         mainOption: {
-            name: '황금 거래 법칙',
+            name: '끝없는 욕망',
             renderDescription: (v) => `던전 보상 상자 추가 드롭 확률 ${v}% 증가`,
-            values: [3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 10.0]
+            values: [1, 2, 3, 4, 5, 7, 8, 10, 12, 15]
         }
     },
 ];
@@ -102,17 +102,19 @@ export const UPGRADE_TARGET_ARTIFACTS: ArtifactConfig[] = [
 // ==========================================
 // 💡 최대치(레벨)가 4강이므로 0강 ~ 4강까지만 정의합니다.
 export const SHARED_SUB_UPGRADE_TABLE: Record<number, number> = {
-    1: 1.0,
-    2: 2.0,
-    3: 3.0,
-    4: 4.0, // 최대 레벨 4강, 최대 수치 4%
+    1: 10.0,
+    2: 26.0,
+    3: 45.0,
+    4: 70.0,
+    5: 100.0
 };
 
 export const SHARED_CURSE_UPGRADE_TABLE: Record<number, number> = {
     1: 1.0,
-    2: 2.0,
-    3: 3.0,
-    4: 4.0, // 최대 레벨 4강, 최대 수치 4%
+    2: 3.0,
+    3: 7.0,
+    4: 12.0,
+    5: 20.0,
 };
 
 // ==========================================
