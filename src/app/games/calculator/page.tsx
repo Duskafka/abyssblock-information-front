@@ -63,10 +63,10 @@ const FIXED_ARMOR_DATA = {
 
 // 💍 기사의 심연 액세서리 고정 메타데이터 (image_fd0b6b.png 구조 완벽 반영)
 const FIXED_ACCESSORY_DATA = {
-    ring: { name: '심연의 반지 (전사)', imageSrc: '/accessories/abyss_ring_warrior.png' },
-    necklace: { name: '심연의 목걸이 (전사)', imageSrc: '/accessories/abyss_necklace_warrior.png' },
-    belt: { name: '심연의 벨트 (전사)', imageSrc: '/accessories/abyss_belt_warrior.png' },
-    bracelet: { name: '심연 브레이슬릿 (전사)', imageSrc: '/accessories/abyss_bracelet_warrior.png' },
+    ring: { name: '심연의 반지', imageSrc: '/accessories/abyss_ring_warrior.png' },
+    necklace: { name: '심연의 목걸이', imageSrc: '/accessories/abyss_necklace_warrior.png' },
+    belt: { name: '심연의 벨트', imageSrc: '/accessories/abyss_belt_warrior.png' },
+    bracelet: { name: '심연 브레이슬릿', imageSrc: '/accessories/abyss_bracelet_warrior.png' },
 };
 
 // 📊 계산기 맞춤형 옵션 재조립
