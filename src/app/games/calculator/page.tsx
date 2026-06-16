@@ -20,7 +20,7 @@ interface ArtifactConfig {
 const UPGRADE_TARGET_ARTIFACTS: ArtifactConfig[] = [
     {
         id: 'blazing_shield',
-        koreanName: '타오르는의 방패',
+        koreanName: '타오르는 방패',
         imageSrc: '/shop/artifact/blazing_shield.png',
         category: 'ARTIFACT',
         mainOption: {
@@ -53,7 +53,6 @@ const UPGRADE_TARGET_ARTIFACTS: ArtifactConfig[] = [
     }
 ];
 
-// 📦 방어구 고정 메타데이터 및 마인크래프트 바닐라 네더라이트 최대 스펙 정의
 const FIXED_ARMOR_DATA = {
     helmet: { name: '네더라이트 헬멧', image: '/shop/armor/netherite_helmet.png', maxDefense: 3, maxToughness: 3 },
     chestplate: { name: '네더라이트 체스트플레이트', image: '/shop/armor/netherite_chestplate.png', maxDefense: 8, maxToughness: 3 },
@@ -61,7 +60,6 @@ const FIXED_ARMOR_DATA = {
     boots: { name: '네더라이트 부츠', image: '/shop/armor/netherite_boots.png', maxDefense: 3, maxToughness: 3 },
 };
 
-// 💍 기사의 심연 액세서리 고정 메타데이터 (image_fd0b6b.png 구조 완벽 반영)
 const FIXED_ACCESSORY_DATA = {
     ring: { name: '심연의 반지', imageSrc: '/accessories/abyss_ring_warrior.png' },
     necklace: { name: '심연의 목걸이', imageSrc: '/accessories/abyss_necklace_warrior.png' },
@@ -69,7 +67,6 @@ const FIXED_ACCESSORY_DATA = {
     bracelet: { name: '심연 브레이슬릿', imageSrc: '/accessories/abyss_bracelet_warrior.png' },
 };
 
-// 📊 계산기 맞춤형 옵션 재조립
 const shieldData = UPGRADE_TARGET_ARTIFACTS.find(item => item.id === 'blazing_shield');
 const insigniaData = UPGRADE_TARGET_ARTIFACTS.find(item => item.id === 'kings_insignia');
 const oasisData = UPGRADE_TARGET_ARTIFACTS.find(item => item.id === 'oasis_essence');
@@ -78,7 +75,7 @@ const ARTIFACT_OPTIONS = [
     { id: 'none', koreanName: '없음', imageSrc: '/shop/item/none.png', type: 'none', values: [0] },
     {
         id: 'blazing_shield',
-        koreanName: shieldData?.koreanName || '타오르는의 방패',
+        koreanName: shieldData?.koreanName || '타오르는 방패',
         imageSrc: shieldData?.imageSrc || '/shop/artifact/blazing_shield.png',
         type: 'flat_conditional',
         values: shieldData?.mainOption.values || [3, 6, 9, 12, 15, 18, 21, 24, 27, 30]
@@ -99,16 +96,22 @@ const ARTIFACT_OPTIONS = [
     }
 ];
 
-// 장신구 보호 강화 계수 테이블 (기본 1~7 유지)
+// 📊 0~7강에 완벽히 매치되는 장신구 보호 강화 계수 테이블
 const getProtectionEnhanceBuff = (level: number): number => {
-    const table: Record<number, number> = { 1: 0.03, 2: 0.05, 3: 0.09, 4: 0.15, 5: 0.23, 6: 0.33, 7: 0.45 };
-    return table[level] || 0;
+    const table: Record<number, number> = {
+        0: 0.00,
+        1: 0.03,
+        2: 0.05,
+        3: 0.09,
+        4: 0.15,
+        5: 0.23,
+        6: 0.33,
+        7: 0.45
+    };
+    return table[level] ?? 0;
 };
 
 export default function DamageCalculatorPage() {
-    // ----------------------------------------------------
-    // [상태 관리] 기본 입력 및 장비 스탯
-    // ----------------------------------------------------
     const [rawDamage, setRawDamage] = useState<number>(100);
 
     const [selectedArtifactId, setSelectedArtifactId] = useState<string>('none');
@@ -116,18 +119,20 @@ export default function DamageCalculatorPage() {
     const [isArtifactDropdownOpen, setIsArtifactDropdownOpen] = useState<boolean>(false);
     const artifactDropdownRef = useRef<HTMLDivElement>(null);
 
+    // 🛡️ 갑옷 보호 기본 최소 상태를 0(0강)으로 리세팅 완료
     const [armor, setArmor] = useState({
-        helmet: { defense: 3, toughness: 3, protection: 1, subOp: 1 },
-        chestplate: { defense: 8, toughness: 3, protection: 1, subOp: 1 },
-        leggings: { defense: 6, toughness: 3, protection: 1, subOp: 1 },
-        boots: { defense: 3, toughness: 3, protection: 1, subOp: 1 },
+        helmet: { defense: 3, toughness: 3, protection: 0, subOp: 1 },
+        chestplate: { defense: 8, toughness: 3, protection: 0, subOp: 1 },
+        leggings: { defense: 6, toughness: 3, protection: 0, subOp: 1 },
+        boots: { defense: 3, toughness: 3, protection: 0, subOp: 1 },
     });
 
-    const [accessories, setAccessories] = useState({ ring: 1, necklace: 1, belt: 1, bracelet: 1 });
+    const [accessories, setAccessories] = useState({ ring: 0, necklace: 0, belt: 0, bracelet: 0 });
 
     const [results, setResults] = useState({
         artifactDamage: 100, armorDamage: 100, protectionDamage: 100, finalDamage: 100,
-        totalDefense: 20, totalToughness: 12, totalProtectionEnhance: 0, appliedArtifactValue: 0
+        totalDefense: 20, totalToughness: 12, totalProtectionEnhance: 0, appliedArtifactValue: 0,
+        totalProtectionLossRate: 0
     });
 
     useEffect(() => {
@@ -153,6 +158,7 @@ export default function DamageCalculatorPage() {
             getProtectionEnhanceBuff(accessories.belt) +
             getProtectionEnhanceBuff(accessories.bracelet);
 
+        // 1. 아티펙트 데미지 계산
         let artifactDamage = rawDamage;
         const currentArt = ARTIFACT_OPTIONS.find(a => a.id === selectedArtifactId) || ARTIFACT_OPTIONS[0];
 
@@ -170,17 +176,20 @@ export default function DamageCalculatorPage() {
             artifactDamage = rawDamage * (1 - (artifactValue / 100));
         }
 
+        // 2. 바닐라 방어 공식 적용 감산
         const minTerm = Math.min(20, Math.max(totalToughness / 5, totalDefense - artifactDamage / (2 + totalToughness / 4)));
         const armorDamage = artifactDamage * (1 - minTerm / 25);
 
-        const mHelmet = armor.helmet.protection * 0.02 * (1 + totalProtectionEnhance);
-        const mChest = armor.chestplate.protection * 0.02 * (1 + totalProtectionEnhance);
-        const mLeg = armor.leggings.protection * 0.02 * (1 + totalProtectionEnhance);
-        const mBoots = armor.boots.protection * 0.02 * (1 + totalProtectionEnhance);
+        // 3. 🛡️ 보호 공식 복리 연산 (1레벨당 2% 차단 기준 적용, 0레벨 시 0%로 스무스하게 보정)
+        const mHelmet = Math.min(0.99, armor.helmet.protection * 0.02 * (1 + totalProtectionEnhance));
+        const mChest = Math.min(0.99, armor.chestplate.protection * 0.02 * (1 + totalProtectionEnhance));
+        const mLeg = Math.min(0.99, armor.leggings.protection * 0.02 * (1 + totalProtectionEnhance));
+        const mBoots = Math.min(0.99, armor.boots.protection * 0.02 * (1 + totalProtectionEnhance));
 
         const protectionMultiplier = (1 - mHelmet) * (1 - mChest) * (1 - mLeg) * (1 - mBoots);
         const protectionDamage = armorDamage * protectionMultiplier;
 
+        // 4. 부옵션 최종 퍼센트 제어
         const subOpMultiplier =
             (1 - armor.helmet.subOp * 0.02) * (1 - armor.chestplate.subOp * 0.02) * (1 - armor.leggings.subOp * 0.02) * (1 - armor.boots.subOp * 0.02);
 
@@ -189,7 +198,8 @@ export default function DamageCalculatorPage() {
         setResults({
             artifactDamage, armorDamage, protectionDamage, finalDamage,
             totalDefense, totalToughness, totalProtectionEnhance,
-            appliedArtifactValue: artifactValue
+            appliedArtifactValue: artifactValue,
+            totalProtectionLossRate: (1 - protectionMultiplier) * 100
         });
     }, [rawDamage, selectedArtifactId, artifactLevel, armor, accessories]);
 
@@ -212,7 +222,7 @@ export default function DamageCalculatorPage() {
                         <p className="text-xs text-slate-400 mt-1">기사 전용 장신구 자산 및 인챈트 레벨 실시간 최적화 시뮬레이터</p>
                     </div>
                     <div className="text-[11px] font-mono bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-slate-500">
-                        Abyssblock Core Engine v3.0
+                        Abyssblock Core Engine v3.3
                     </div>
                 </div>
 
@@ -304,14 +314,14 @@ export default function DamageCalculatorPage() {
                             )}
                         </div>
 
-                        {/* 📦 방어구 스탯 입력 리스트 카드 */}
+                        {/* 📦 방어구 스탯 입력 리스트 카드 (보호 0부터 슬라이더 제어 지원) */}
                         <div className="bg-[#161d2a] border border-slate-800 rounded-2xl p-5 shadow-md space-y-4">
-                            <h3 className="text-xs font-bold text-slate-300 border-b border-slate-800 pb-2">📦 방어구 부위별 스탯 매칭 (보호·부옵 1~12 레벨 세팅)</h3>
+                            <h3 className="text-xs font-bold text-slate-300 border-b border-slate-800 pb-2">📦 방어구 부위별 스탯 매칭 (보호 1레벨당 -2% 복리 감산)</h3>
 
                             <div className="space-y-4">
                                 {(Object.keys(armor) as Array<keyof typeof armor>).map((part) => {
                                     const info = FIXED_ARMOR_DATA[part];
-                                    const currentProtectionRate = armor[part].protection * 2 * (1 + results.totalProtectionEnhance);
+                                    const currentProtectionRate = armor[part].protection * 2;
                                     const currentSubOpRate = armor[part].subOp * 2;
 
                                     return (
@@ -350,13 +360,16 @@ export default function DamageCalculatorPage() {
                                                     />
                                                 </div>
 
+                                                {/* 🛠️ min="0" 제어 및 0강 시 '+0 강' 텍스트 출력으로 동적 교정 */}
                                                 <div className="space-y-1">
                                                     <div className="flex justify-between text-[10px] font-bold font-mono">
-                                                        <span className="text-purple-500">보호 (1~12)</span>
-                                                        <span className="text-purple-400">Lv.{armor[part].protection} (-{currentProtectionRate.toFixed(1)}%)</span>
+                                                        <span className="text-purple-400">보호 (0~12)</span>
+                                                        <span className="text-purple-300">
+                                                            {armor[part].protection === 0 ? '+0 강' : `+${armor[part].protection} 강`} (-{currentProtectionRate}%)
+                                                        </span>
                                                     </div>
                                                     <input
-                                                        type="range" min="1" max="12" value={armor[part].protection}
+                                                        type="range" min="0" max="12" value={armor[part].protection}
                                                         onChange={(e) => handleArmorStatChange(part, 'protection', Number(e.target.value))}
                                                         className="w-full accent-purple-400 bg-slate-800 h-1 rounded cursor-pointer"
                                                     />
@@ -381,12 +394,13 @@ export default function DamageCalculatorPage() {
                             </div>
                         </div>
 
-                        {/* 💍 장신구 강화 등급 슬라이더 세팅 블록 (FIXED_ACCESSORY_DATA 에셋 연동 완비) */}
+                        {/* 💍 장신구 강화 등급 설정 블록 ("노강" 텍스트 제거 및 "+0 강" 통일화) */}
                         <div className="bg-[#161d2a] border border-slate-800 rounded-2xl p-5 shadow-md space-y-3">
                             <h3 className="text-xs font-bold text-slate-300 border-b border-slate-800 pb-2">심연 장신구 보호 강화 레벨 설정</h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                                 {(Object.keys(accessories) as Array<keyof typeof accessories>).map((acc) => {
                                     const meta = FIXED_ACCESSORY_DATA[acc];
+                                    const enhanceVal = getProtectionEnhanceBuff(accessories[acc]);
                                     return (
                                         <div key={acc} className="bg-[#0f141c] border border-slate-800 p-3.5 rounded-xl space-y-2">
                                             <div className="flex justify-between items-center">
@@ -394,13 +408,14 @@ export default function DamageCalculatorPage() {
                                                     <img src={meta.imageSrc} alt="" className="w-5 h-5 object-contain [image-rendering:pixelated]" />
                                                     <span>{meta.name}</span>
                                                 </div>
+                                                {/* 🛠️ 기존 '노강' 표기를 '+0 강'으로 균일하게 구조 변경 */}
                                                 <span className="text-emerald-400 font-mono font-black bg-emerald-400/10 px-2 py-0.5 rounded border border-emerald-400/20 text-[11px]">
-                                                    +{accessories[acc]} 강
+                                                    {`+${accessories[acc]} 강`} ({ (enhanceVal * 100).toFixed(0) }%)
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <input
-                                                    type="range" min="1" max="7" value={accessories[acc]}
+                                                    type="range" min="0" max="7" value={accessories[acc]}
                                                     onChange={(e) => setAccessories(prev => ({ ...prev, [acc]: Number(e.target.value) }))}
                                                     className="w-full accent-emerald-400 bg-slate-800 h-1 rounded cursor-pointer"
                                                 />
@@ -441,11 +456,15 @@ export default function DamageCalculatorPage() {
                                     <span className="text-slate-200 font-bold">{results.armorDamage.toFixed(3)} DMG</span>
                                 </div>
                                 <div className="flex justify-between p-2.5 bg-[#0f141c] rounded-xl border border-slate-800">
-                                    <span className="text-slate-400">04. 보호+보호강화 시너지</span>
+                                    <span className="text-purple-400 font-bold">04. 복리 보호 총 차단율</span>
+                                    <span className="text-purple-400 font-bold">-{results.totalProtectionLossRate.toFixed(2)}%</span>
+                                </div>
+                                <div className="flex justify-between p-2.5 bg-[#0f141c] rounded-xl border border-slate-800">
+                                    <span className="text-slate-400">05. 보호 적용 후 데미지</span>
                                     <span className="text-slate-200 font-bold">{results.protectionDamage.toFixed(3)} DMG</span>
                                 </div>
                                 <div className="flex justify-between p-2.5 bg-amber-400/5 rounded-xl border border-amber-400/10">
-                                    <span className="text-amber-400/80 font-bold">05. 부옵션 최종 피해량</span>
+                                    <span className="text-amber-400/80 font-bold">06. 부옵션 최종 피해량</span>
                                     <span className="text-amber-400 font-bold">{results.finalDamage.toFixed(3)} DMG</span>
                                 </div>
                             </div>
