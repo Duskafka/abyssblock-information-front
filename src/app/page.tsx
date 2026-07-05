@@ -15,7 +15,42 @@ export default function DashboardPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [limit, setLimit] = useState<number>(6); // 6개 = 2시간, 12개 = 4시간 ...
 
+  // 💡 모드 가이드 및 복사 상태 추가
+  const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
+  const [copiedText, setCopiedText] = useState<string | null>(null);
+
   const pad = (n: number) => String(n).padStart(2, '0');
+
+  // 명령어 클립보드 복사 기능
+  const handleCopy = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedText(id);
+    setTimeout(() => setCopiedText(null), 2000);
+  };
+
+  const commands = [
+    {
+      id: 'register',
+      syntax: '/회원가입 "이메일" "비밀번호"',
+      title: '🔐 계정 생성',
+      description: '모드 전용 웹사이트에 회원가입하기 위한 필수 명령어입니다.',
+      tip: '반드시 실제 사용 가능한 이메일을 입력해 주세요. 추후 비밀번호를 분실했을 때 계정을 찾기 위해 꼭 필요합니다.'
+    },
+    {
+      id: 'profile',
+      syntax: '/프로필갱신 "이메일" "비밀번호"',
+      title: '🔄 프로필 동기화',
+      description: '모드 사이트에 본인의 인게임 최신 정보를 업데이트하는 명령어입니다.',
+      tip: '인게임에서 나침반 등급이 높아졌거나, 마인크래프트 닉네임을 변경하셨을 때 실행해 주셔야 정상적으로 반영됩니다.'
+    },
+    {
+      id: 'coin',
+      syntax: '/coin',
+      title: '🪙 에메랄드 자동 교환',
+      description: '인게임 내에서 변경된 에메랄드 교환을 프로그램이 알아서 자동으로 실행해 주는 편리한 제어 명령어입니다.',
+      tip: '동작 전 에메랄드 상태를 확인 후 입력해 주세요.'
+    }
+  ];
 
   // 📡 데이터베이스 직접 조회 후 실시간 정격 그리드 생성
   const fetchTimelineData = async (currentLimit: number = limit) => {
@@ -78,10 +113,8 @@ export default function DashboardPage() {
     fetchTimelineData(limit);
   }, [limit]);
 
-  // 상단 단가 요약 카드를 위한 가장 최신 제보 데이터 역추적
   const currentActive = [...timeline].reverse().find(slot => slot.registered_by !== null);
 
-  // 🏆 제보왕 실시간 랭킹 집계 로직
   const getRankings = () => {
     const counts: { [key: string]: number } = {};
     timeline.forEach(slot => {
@@ -125,13 +158,11 @@ export default function DashboardPage() {
                 { label: '황금 호박', value: currentActive?.pumpkin, icon: '/crop/golden_pumpkin.png' }
               ].map((item, i) => (
                   <div key={i} className="bg-[#161d2a] p-4 rounded-xl border border-slate-800 flex flex-col items-center justify-center text-center shadow-md">
-                    {/* 작물 이미지 아이콘 */}
                     <div className="w-7 h-7 mb-1 flex items-center justify-center">
                       <img src={item.icon} alt={item.label} className="w-full h-full object-contain" />
                     </div>
                     <span className="text-xs text-slate-400 block mb-1">{item.label}</span>
 
-                    {/* 💎 EM 텍스트를 emerald.png 아이콘 이미지로 변경 및 정렬 */}
                     <div className="flex items-center justify-center gap-1.5 mt-0.5">
                       <span className="text-2xl font-black text-amber-400 leading-none">
                         {item.value ?? '-'}
@@ -149,6 +180,24 @@ export default function DashboardPage() {
             </div>
           </section>
 
+          {/* 🌟 NEW SECTION: 모드 명령어 및 구독권 안내 바로가기 배너 */}
+          <section>
+            <div
+                onClick={() => setIsGuideOpen(true)}
+                className="bg-gradient-to-r from-amber-500/10 via-amber-400/5 to-transparent border border-amber-400/20 hover:border-amber-400/40 rounded-2xl p-5 shadow-xl cursor-pointer transition flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group select-none"
+            >
+              <div>
+                <h3 className="text-base font-black text-amber-400 flex items-center gap-2 group-hover:text-amber-300 transition">
+                  <span>🌀</span> Abyssblock 모드 프로그램 가이드 & 구독 안내
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">인게임 연동을 위한 필수 명령어들과 자동화 프리미엄 구독권 요금을 확인해 보세요.</p>
+              </div>
+              <button className="bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold text-xs px-4 py-2.5 rounded-xl shadow transition whitespace-nowrap self-stretch sm:self-auto text-center">
+                사용법 및 구독 안내 보기 ➔
+              </button>
+            </div>
+          </section>
+
           {/* SECTION B: 시세 변동 추이 그래프 */}
           <section className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -157,7 +206,6 @@ export default function DashboardPage() {
               </h2>
 
               <div className="flex items-center gap-2 self-start sm:self-auto">
-                {/* 시간 범위 필터 제어 탭 */}
                 <div className="flex bg-[#161d2a] p-1 rounded-xl border border-slate-800 shadow-inner">
                   {[6, 12, 24, 36, 72].map((timeLimit) => (
                       <button
@@ -174,7 +222,6 @@ export default function DashboardPage() {
                   ))}
                 </div>
 
-                {/* 새로고침 버튼 */}
                 <button
                     onClick={() => fetchTimelineData(limit)}
                     title="시세 새로고침"
@@ -249,6 +296,123 @@ export default function DashboardPage() {
             </div>
           </section>
         </main>
+
+        {/* 🌟 NEW MODAL: 모드 사용 가이드 팝업 창 */}
+        {isGuideOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
+              <div className="bg-[#161d2a] border border-slate-800 rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto shadow-2xl flex flex-col">
+
+                {/* 모달 헤더 */}
+                <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-[#1c2637]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🌀</span>
+                    <h3 className="text-base font-black text-slate-100">Abyssblock 모드 토탈 가이드</h3>
+                  </div>
+                  <button
+                      onClick={() => setIsGuideOpen(false)}
+                      className="p-1.5 text-slate-400 hover:text-slate-100 bg-slate-800/50 hover:bg-slate-800 border border-slate-700/60 rounded-xl text-xs font-mono transition"
+                  >
+                    ESC ✕
+                  </button>
+                </div>
+
+                {/* 모달 바디 */}
+                <div className="p-6 space-y-6 overflow-y-auto">
+
+                  {/* 1. 명령어 정보 안내 리스트 */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>💻</span> 필수 인게임 연동 명령어 (클릭 시 자동 복사)
+                    </h4>
+
+                    <div className="grid grid-cols-1 gap-4">
+                      {commands.map((cmd) => (
+                          <div key={cmd.id} className="bg-[#0f141c] border border-slate-800 p-4 rounded-xl space-y-2 relative group">
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs font-bold text-amber-400/90 tracking-wide">{cmd.title}</span>
+                              <button
+                                  onClick={(e) => { e.stopPropagation(); handleCopy(cmd.syntax, cmd.id); }}
+                                  className="text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 font-mono px-2 py-0.5 rounded transition"
+                              >
+                                {copiedText === cmd.id ? '복사완료! ✓' : 'COPY'}
+                              </button>
+                            </div>
+
+                            <div
+                                onClick={() => handleCopy(cmd.syntax, cmd.id)}
+                                className="w-full bg-slate-950/70 border border-slate-800 font-mono px-3 py-2 text-xs text-emerald-400 font-bold cursor-pointer hover:border-amber-400/30 transition flex justify-between items-center rounded-lg"
+                            >
+                              <span>{cmd.syntax}</span>
+                            </div>
+
+                            <p className="text-xs text-slate-300 leading-relaxed pl-0.5">{cmd.description}</p>
+
+                            <div className="text-[11px] bg-amber-400/5 text-slate-400 border border-amber-400/10 p-2.5 rounded-lg leading-relaxed">
+                              <span className="text-amber-400 font-bold">💡 참고:</span> {cmd.tip}
+                            </div>
+                          </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 2. 구독권 가격 정보 및 대리 후원 혜택 */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>🎫</span> 프리미엄 기능 구독권 안내
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="bg-[#0f141c] border border-slate-800 p-4 rounded-xl flex flex-col justify-center">
+                        <span className="text-[10px] text-slate-500 font-bold mb-1">인게임 기본 결제</span>
+                        <div className="text-base font-black text-slate-200 font-mono">
+                          1일 ➔ <span className="text-amber-400">1 에주</span> <span className="text-xs font-normal text-slate-400">(에메랄드 주괴)</span>
+                        </div>
+                      </div>
+                      <div className="bg-[#0f141c] border border-amber-400/10 p-4 rounded-xl relative overflow-hidden flex flex-col justify-center">
+                        <div className="absolute top-0 right-0 bg-red-500/20 text-red-400 text-[8px] font-black px-2 py-0.5 rounded-bl">강력 추천!</div>
+                        <span className="text-[10px] text-amber-400/80 font-bold mb-1">대리 후원 특가</span>
+                        <div className="text-base font-black text-emerald-400 font-mono">
+                          10,000원 ➔ <span className="text-emerald-400 font-black">120일 제공</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. 구매 및 신청 연동 채널 */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>📬</span> 구독 신청 및 문의 방법
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div className="p-3.5 bg-[#0f141c] border border-slate-800 rounded-xl space-y-1">
+                        <span className="font-bold text-slate-200 block">💬 디스코드 개인 메시지(DM)</span>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          디스코드 내 서버 멤버 리스트에서 확인하신 후 저에게 직접 DM을 발송해 주시면 확인 후 즉시 처리해 드립니다.
+                        </p>
+                      </div>
+                      <div className="p-3.5 bg-[#0f141c] border border-slate-800 rounded-xl space-y-1">
+                        <span className="font-bold text-slate-200 block">🎮 인게임 귓속말 연동</span>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          마인크래프트 서버 접속 후 <span className="text-amber-400 font-mono font-bold">Mx_Nothing</span> 닉네임으로 귓말을 주시면 신속하게 도와드리겠습니다.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* 모달 푸터 */}
+                <div className="p-4 bg-[#121822] border-t border-slate-800 text-center">
+                  <button
+                      onClick={() => setIsGuideOpen(false)}
+                      className="w-full sm:w-auto bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs px-6 py-2 rounded-xl border border-slate-700 transition"
+                  >
+                    닫기
+                  </button>
+                </div>
+
+              </div>
+            </div>
+        )}
       </div>
   );
 }
