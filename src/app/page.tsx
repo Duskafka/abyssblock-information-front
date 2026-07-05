@@ -15,7 +15,7 @@ export default function DashboardPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [limit, setLimit] = useState<number>(6); // 6개 = 2시간, 12개 = 4시간 ...
 
-  // 💡 모드 가이드 및 복사 상태 추가
+  // 모드 가이드 및 복사 상태 추가
   const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
   const [copiedText, setCopiedText] = useState<string | null>(null);
 
@@ -180,7 +180,7 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          {/* 🌟 NEW SECTION: 모드 명령어 및 구독권 안내 바로가기 배너 */}
+          {/* SECTION: 모드 명령어 및 구독권 안내 바로가기 배너 */}
           <section>
             <div
                 onClick={() => setIsGuideOpen(true)}
@@ -297,7 +297,7 @@ export default function DashboardPage() {
           </section>
         </main>
 
-        {/* 🌟 NEW MODAL: 모드 사용 가이드 팝업 창 */}
+        {/* MODAL: 모드 사용 가이드 팝업 창 */}
         {isGuideOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
               <div className="bg-[#161d2a] border border-slate-800 rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto shadow-2xl flex flex-col">
@@ -319,7 +319,30 @@ export default function DashboardPage() {
                 {/* 모달 바디 */}
                 <div className="p-6 space-y-6 overflow-y-auto">
 
-                  {/* 1. 명령어 정보 안내 리스트 */}
+                  {/* 🌟 1. 최신 모드 다운로드 섹션 (상단 배치) */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>📦</span> 최신 모드 다운로드
+                    </h4>
+                    <div className="bg-[#0f141c] border border-slate-800 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                      <div>
+                        <span className="text-xs font-bold text-slate-200 block">Abyssblock 전용 파일 (gold-crop-obf.jar)</span>
+                        <p className="text-[11px] text-slate-500 font-mono mt-0.5">v1.4.0 / 실행용 전용 모드 파일</p>
+                      </div>
+                      <a
+                          href="/mod/gold-crop-obf.jar"
+                          download="gold-crop-obf.jar"
+                          className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs px-5 py-2.5 rounded-xl shadow transition whitespace-nowrap self-stretch sm:self-auto text-center"
+                      >
+                        모드 파일 다운로드 💾
+                      </a>
+                    </div>
+                    <div className="text-[10px] bg-red-500/5 text-slate-400 border border-red-500/10 p-2.5 rounded-lg leading-relaxed">
+                      <span className="text-red-400 font-bold">⚠️ 알림:</span> 파일이 `.jar` 확장자이므로 크롬 등 브라우저에서 '안전하지 않은 파일' 경고가 발생할 수 있습니다. 수동으로 암호화 처리된 안전한 파일이오니 안심하고 <span className="text-emerald-400 font-bold">'유지'</span> 또는 <span className="text-emerald-400 font-bold">'계속 다운로드'</span>를 눌러 구동해 주세요.
+                    </div>
+                  </div>
+
+                  {/* 2. 명령어 정보 안내 리스트 */}
                   <div className="space-y-4">
                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                       <span>💻</span> 필수 인게임 연동 명령어 (클릭 시 자동 복사)
@@ -355,7 +378,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  {/* 2. 구독권 가격 정보 및 대리 후원 혜택 */}
+                  {/* 3. 구독권 가격 정보 및 대리 후원 혜택 */}
                   <div className="space-y-3">
                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                       <span>🎫</span> 프리미엄 기능 구독권 안내
@@ -377,7 +400,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  {/* 3. 구매 및 신청 연동 채널 */}
+                  {/* 4. 구매 및 신청 연동 채널 */}
                   <div className="space-y-3">
                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                       <span>📬</span> 구독 신청 및 문의 방법
