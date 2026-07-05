@@ -387,7 +387,7 @@ export default function DashboardPage() {
                       <div className="bg-[#0f141c] border border-slate-800 p-4 rounded-xl flex flex-col justify-center">
                         <span className="text-[10px] text-slate-500 font-bold mb-1">인게임 기본 결제</span>
                         <div className="text-base font-black text-slate-200 font-mono">
-                          1일 ➔ <span className="text-amber-400">1 에주</span> <span className="text-xs font-normal text-slate-400">(에메랄드 주괴)</span>
+                          1일 ➔ <span className="text-amber-400">1 에주</span> <span className="text-xs font-normal text-slate-400">(에메랄드 주화)</span>
                         </div>
                       </div>
                       <div className="bg-[#0f141c] border border-amber-400/10 p-4 rounded-xl relative overflow-hidden flex flex-col justify-center">
