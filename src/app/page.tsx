@@ -327,7 +327,7 @@ export default function DashboardPage() {
                     <div className="bg-[#0f141c] border border-slate-800 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                       <div>
                         <span className="text-xs font-bold text-slate-200 block">Abyssblock 전용 파일 (gold-crop-obf.jar)</span>
-                        <p className="text-[11px] text-slate-500 font-mono mt-0.5">v1.4.0 / 실행용 전용 모드 파일</p>
+                        <p className="text-[11px] text-slate-500 font-mono mt-0.5">v1.4.1 / 실행용 전용 모드 파일</p>
                       </div>
                       <a
                           href="/mod/gold-crop-obf.jar"
