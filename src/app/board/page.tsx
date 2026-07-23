@@ -1,11 +1,12 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import CreateBuildModal from './components/CreateBuildModal';
 import BuildPostCard from './components/BuildPostCard';
 
-// 🧭 로컬 유물 데이터 import
 import { RELICS_DATA } from '@/app/constants/relics';
 
 const supabase = createBrowserClient(
@@ -24,10 +25,8 @@ export default function BoardPage() {
         try {
             setLoading(true);
 
-            // 1. RELICS_DATA 기반 Map 구성 (DB 조회 제거)
             const relicMap = new Map(RELICS_DATA.map(r => [r.id, r]));
 
-            // 2. 게시글 정보 단독 로드
             const { data: rawPosts } = await supabase
                 .from('posts')
                 .select('*')
@@ -38,11 +37,9 @@ export default function BoardPage() {
                 return;
             }
 
-            // 3. 프로필 정보(나침반 등급) 조회
             const { data: profileData } = await supabase.from('profiles').select('id, compass_rank');
             const profileMap = new Map(profileData?.map(p => [p.id, p.compass_rank]) || []);
 
-            // 4. 로컬 유물 데이터 매핑
             const formattedPosts = rawPosts.map(post => {
                 const compassRank = profileMap.get(post.user_id) || 'NULL';
                 return {
@@ -131,9 +128,7 @@ export default function BoardPage() {
                 ) : (
                     <div className="space-y-4">
                         {filteredPosts.map(post => (
-                            // 💡 BuildPostCard에도 RELICS_DATA를 사용하도록 relics props를 건네주지 않거나,
-                            // 컴포넌트 내부에서 RELICS_DATA를 직접 참조하도록 변경할 수 있습니다.
-                            <BuildPostCard key={post.id} post={post} relics={RELICS_DATA} />
+                            <BuildPostCard key={post.id} post={post} />
                         ))}
                     </div>
                 )}

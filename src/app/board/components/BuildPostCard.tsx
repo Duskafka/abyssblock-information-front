@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { getCompassSrc } from '@/app/constants/compass';
-// 🧭 로컬 유물 데이터 직접 import
 import { RELICS_DATA } from '@/app/constants/relics';
 
 interface BuildPostCardProps {
@@ -48,20 +47,23 @@ export default function BuildPostCard({ post }: BuildPostCardProps) {
             </div>
 
             <div className="space-y-2.5 pt-1">
-                {/* 👑 핵심 유물 (m1, m2, m3) */}
                 <div className="flex flex-wrap items-center gap-2">
                     <span className="text-[11px] font-bold text-amber-400 w-16">👑 핵심:</span>
                     <div className="flex flex-wrap gap-1.5">
-                        {[post.m1, post.m2, post.m3].map((relic, idx) => relic ? (
-                            <div key={idx} className="flex items-center gap-1.5 bg-[#0f141c] border border-slate-700 rounded-lg px-2.5 py-1 text-[11px]" title={relic.korean_name}>
-                                <img src={relic.image_url} alt="" className="w-4 h-4 object-contain" />
-                                <span className="text-slate-300 font-medium">{relic.korean_name}</span>
-                            </div>
-                        ) : null)}
+                        {[post.m1, post.m2, post.m3].map((relic, idx) => {
+                            if (!relic) return null;
+                            const name = relic.koreanName || relic.korean_name;
+                            const img = relic.imageUrl || relic.image_url;
+                            return (
+                                <div key={idx} className="flex items-center gap-1.5 bg-[#0f141c] border border-slate-700 rounded-lg px-2.5 py-1 text-[11px]" title={name}>
+                                    <img src={img} alt="" className="w-4 h-4 object-contain" />
+                                    <span className="text-slate-300 font-medium">{name}</span>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
 
-                {/* 🔗 사이드 유물 (RELICS_DATA에서 direct lookup + koreanName, imageUrl 적용) */}
                 {post.side_relics && post.side_relics.length > 0 && (
                     <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/40">
                         <span className="text-[11px] font-bold text-slate-400 w-16">🔗 사이드:</span>
