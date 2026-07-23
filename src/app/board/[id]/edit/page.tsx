@@ -8,8 +8,9 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { z } from 'zod';
 
-// 🧭 분리 보관하신 경로에서 비속어 필터링 함수를 import 합니다.
+// 🧭 비속어 필터링 및 유물 데이터/타입 import
 import { checkProfanity } from '@/app/constants/profanity';
+import { RELICS_DATA, Relic } from '@/app/constants/relics';
 
 const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -45,7 +46,7 @@ function CustomRelicSelect({
                                onChange
                            }: {
     label: string;
-    relics: any[];
+    relics: Relic[];
     selectedValue: string;
     onChange: (id: string) => void;
 }) {
@@ -65,30 +66,35 @@ function CustomRelicSelect({
     const selectedRelic = relics.find(r => r.id === selectedValue);
 
     return (
-        <div className="relative w-full text-left" ref={dropdownRef}>
-            <label className="text-[11px] text-slate-400 block mb-1">{label}</label>
+        <div className="relative w-full text-left font-sans" ref={dropdownRef}>
+            <label className="text-[11px] text-slate-400 block mb-1 font-semibold pl-1">{label}</label>
             <button
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className="w-full bg-[#0f141c] border border-slate-700 rounded-xl px-3 py-2.5 text-slate-300 focus:outline-none focus:border-amber-400 flex items-center justify-between transition text-xs"
+                className="w-full bg-[#0f141c] border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-300 focus:outline-none focus:border-amber-400 flex items-center justify-between transition-all cursor-pointer select-none"
             >
                 {selectedRelic ? (
                     <div className="flex items-center gap-2">
-                        <img src={selectedRelic.image_url} alt="" className="w-4 h-4 object-contain" />
-                        <span className="text-slate-200">{selectedRelic.korean_name}</span>
+                        <img src={selectedRelic.imageUrl} alt="" className="w-4 h-4 object-contain" />
+                        <span className="text-slate-200 font-bold text-xs">{selectedRelic.koreanName}</span>
                     </div>
                 ) : (
-                    <span className="text-slate-500">-- {label} 선택 --</span>
+                    <span className="text-slate-500 font-medium text-xs">-- {label} 선택 --</span>
                 )}
-                <span className="text-slate-500 text-[10px]">{isOpen ? '▲' : '▼'}</span>
+                <svg
+                    className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${isOpen ? 'rotate-180 text-amber-400' : ''}`}
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                </svg>
             </button>
 
             {isOpen && (
-                <div className="absolute left-0 right-0 mt-1 bg-[#1a2332] border border-slate-700 rounded-xl shadow-2xl z-50 max-h-56 overflow-y-auto divide-y divide-slate-800/60">
+                <div className="absolute left-0 right-0 mt-2 bg-[#111622] border border-slate-800 rounded-xl shadow-2xl z-50 max-h-56 overflow-y-auto p-1.5 space-y-0.5 custom-scrollbar">
                     <button
                         type="button"
                         onClick={() => { onChange(''); setIsOpen(false); }}
-                        className="w-full px-3 py-2.5 text-left text-slate-500 hover:bg-slate-800/50 text-xs"
+                        className="w-full px-3 py-2 text-left text-slate-500 hover:bg-[#161d2a] hover:text-slate-300 font-bold rounded-lg text-xs transition"
                     >
                         -- 지정 안 함 --
                     </button>
@@ -97,10 +103,14 @@ function CustomRelicSelect({
                             key={r.id}
                             type="button"
                             onClick={() => { onChange(r.id); setIsOpen(false); }}
-                            className={`w-full px-3 py-2.5 text-left hover:bg-slate-800 flex items-center gap-2 transition text-xs ${selectedValue === r.id ? 'bg-amber-500/10 text-amber-400' : 'text-slate-300'}`}
+                            className={`w-full px-3 py-2 text-left rounded-lg flex items-center gap-2.5 transition-all text-xs font-bold ${
+                                selectedValue === r.id
+                                    ? 'bg-amber-400 text-slate-900 font-extrabold shadow-md'
+                                    : 'text-slate-400 hover:bg-[#161d2a] hover:text-white'
+                            }`}
                         >
-                            <img src={r.image_url} alt="" className="w-4 h-4 object-contain" />
-                            <span>{r.korean_name}</span>
+                            <img src={r.imageUrl} alt="" className="w-4 h-4 object-contain shrink-0" />
+                            <span>{r.koreanName}</span>
                         </button>
                     ))}
                 </div>
@@ -115,7 +125,6 @@ export default function EditPostPage() {
     const postId = params.id as string;
 
     const [user, setUser] = useState<any>(null);
-    const [relics, setRelics] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     // 폼 수정 상태 관리
@@ -129,17 +138,16 @@ export default function EditPostPage() {
 
     const [activeTab, setActiveTab] = useState<'write' | 'preview'>('write');
 
+    const jobs = ['기사', '마법사수', '사냥꾼'];
+    const selectedJobIndex = jobs.indexOf(selectedJob);
+
     // 초기 데이터 패치 및 작성자 권한 검증
     useEffect(() => {
-        async function loadPostAndRelics() {
+        async function loadPost() {
             try {
                 setLoading(true);
 
-                // 1. 유물 데이터 받아오기
-                const { data: relicData } = await supabase.from('relics').select('*').order('korean_name');
-                setRelics(relicData || []);
-
-                // 2. 현재 로그인 유저 확인
+                // 1. 현재 로그인 유저 확인
                 const { data: { session } } = await supabase.auth.getSession();
                 const currentUser = session?.user ?? null;
                 setUser(currentUser);
@@ -150,7 +158,7 @@ export default function EditPostPage() {
                     return;
                 }
 
-                // 3. 기존 게시글 정보 가져오기
+                // 2. 기존 게시글 정보 가져오기
                 const { data: postData, error } = await supabase
                     .from('posts')
                     .select('*')
@@ -166,7 +174,7 @@ export default function EditPostPage() {
                     return;
                 }
 
-                // 4. 받아온 기존 데이터를 input 상태값들에 세팅!
+                // 3. 기존 데이터 상태값에 설정
                 setTitle(postData.title);
                 setContent(postData.content);
                 setMain1(postData.main_relic_1 || '');
@@ -174,9 +182,11 @@ export default function EditPostPage() {
                 setMain3(postData.main_relic_3 || '');
                 setSelectedSides(postData.side_relics || []);
 
-                // 코어 유물 중 첫 번째 유물의 직업군을 기본 세팅 (분류 편의용)
-                if (postData.main_relic_1 && relicData) {
-                    const firstRelic = relicData.find(r => r.id === postData.main_relic_1);
+                // 게시글 직업이 있으면 해당 직업 적용, 없으면 첫 코어 유물의 직업 추론
+                if (postData.job) {
+                    setSelectedJob(postData.job);
+                } else if (postData.main_relic_1) {
+                    const firstRelic = RELICS_DATA.find(r => r.id === postData.main_relic_1);
                     if (firstRelic && firstRelic.job && !firstRelic.job.includes('common')) {
                         if (firstRelic.job.includes('기사')) setSelectedJob('기사');
                         else if (firstRelic.job.includes('마법사수')) setSelectedJob('마법사수');
@@ -192,7 +202,7 @@ export default function EditPostPage() {
                 setLoading(false);
             }
         }
-        loadPostAndRelics();
+        loadPost();
     }, [postId, router]);
 
     const handleSideToggle = (relicId: string) => {
@@ -214,14 +224,12 @@ export default function EditPostPage() {
             return;
         }
 
-        // 💡 중앙 관리 파일에서 import 해온 강력한 우회 차단 로직이 완벽하게 필터링합니다.
         if (checkProfanity(title) || checkProfanity(content)) {
             alert('제목이나 내용에 제한된 표현(비속어)이 포함되어 있습니다. 올바른 유물 공략 문화를 만들어주세요!');
             return;
         }
 
         try {
-            // 💡 타임존 파싱 에러를 완벽히 방지하기 위해 .toUTCString() 포맷으로 변경하여 전송
             const currentTimeStr = new Date().toUTCString();
 
             const { error } = await supabase
@@ -229,26 +237,27 @@ export default function EditPostPage() {
                 .update({
                     title,
                     content,
+                    job: selectedJob,
                     main_relic_1: main1 || null,
                     main_relic_2: main2 || null,
                     main_relic_3: main3 || null,
                     side_relics: selectedSides,
-                    updated_at: currentTimeStr // 👈 UTC 기반 타임스탬프 규격 갱신
+                    updated_at: currentTimeStr
                 })
                 .eq('id', postId);
 
             if (error) throw error;
 
             alert('공략 빌드가 성공적으로 수정되었습니다! ✏️');
-            router.push(`/board/${postId}`); // 수정 완료 후 상세 페이지로 이동
+            router.push(`/board/${postId}`);
         } catch (err: any) {
             alert(`수정 중 오류 발생: ${err.message}`);
         }
     };
 
-    // 직업 및 등급별 유물 풀 필터링
-    const filteredRelicsByJob = relics.filter(r => {
-        if (!r.job) return false;
+    // RELICS_DATA 기반 직업 및 등급별 유물 필터링
+    const filteredRelicsByJob = RELICS_DATA.filter(r => {
+        if (!r.job || r.job.toLowerCase().trim() === 'none') return false;
         const cleanJob = r.job.replace(/\s+/g, '');
         return cleanJob.includes('common') || cleanJob.includes(selectedJob);
     });
@@ -256,6 +265,11 @@ export default function EditPostPage() {
     const bossRelics = filteredRelicsByJob.filter(r => r.grade === 'boss');
     const shopRelicsPool = filteredRelicsByJob.filter(r => r.grade === 'shop');
     const sideRelicsPool = filteredRelicsByJob.filter(r => r.grade === 'side');
+
+    // 코어 유물 중복 선택 제거 필터
+    const bossRelicsForMain1 = bossRelics.filter(r => r.id !== main2 && r.id !== main3);
+    const bossRelicsForMain2 = bossRelics.filter(r => r.id !== main1 && r.id !== main3);
+    const bossRelicsForMain3 = bossRelics.filter(r => r.id !== main1 && r.id !== main2);
 
     if (loading) {
         return (
@@ -272,7 +286,9 @@ export default function EditPostPage() {
                 {/* 헤더 네비게이션 */}
                 <div className="flex justify-between items-center border-b border-slate-800 pb-4">
                     <div>
-                        <h2 className="text-lg font-bold text-slate-200">🛠️ 빌드 공략 수정하기</h2>
+                        <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
+                            <span>🛠️</span> 빌드 공략 수정하기
+                        </h2>
                         <p className="text-xs text-slate-400 mt-1">핵심 유물 배치를 바꾸거나 설명 마크다운을 보완할 수 있습니다.</p>
                     </div>
                     <Link href={`/board/${postId}`} className="text-xs text-slate-400 hover:text-slate-200 transition">
@@ -286,61 +302,102 @@ export default function EditPostPage() {
 
                         {/* 왼쪽 유물 변경 사이드 바 */}
                         <div className="md:col-span-5 space-y-4 border-r border-slate-800/60 pr-1 md:pr-4">
+
+                            {/* 직업 선택 슬라이더 */}
                             <div className="space-y-1.5">
-                                <label className="text-amber-400 font-bold block text-[11px]">🎯 빌드 직업군 변경 필터</label>
-                                <div className="flex gap-3 bg-[#0f141c] px-3 py-2 rounded-xl border border-slate-700 justify-between">
-                                    {['기사', '마법사수', '사냥꾼'].map(job => (
-                                        <label key={job} className="flex items-center gap-1.5 cursor-pointer text-slate-300 font-medium">
-                                            <input
-                                                type="radio" name="jobFilter" value={job} checked={selectedJob === job}
-                                                onChange={(e) => setSelectedJob(e.target.value)}
-                                                className="text-amber-400 focus:ring-0 bg-slate-900 border-slate-700 w-3.5 h-3.5 cursor-pointer"
-                                            />
-                                            <span>{job}</span>
-                                        </label>
-                                    ))}
+                                <label className="text-amber-400 font-bold block text-[11px]">🎯 빌드 대상 직업군</label>
+                                <div className="relative flex bg-[#0f141c] p-1 rounded-xl border border-slate-800 h-9 overflow-hidden select-none">
+                                    <div
+                                        className="absolute top-1 bottom-1 bg-amber-400 rounded-lg transition-all duration-300 ease-out shadow-md"
+                                        style={{
+                                            width: 'calc(33.3333% - 4px)',
+                                            left: `calc(${selectedJobIndex * 33.3333}% + ${2 + selectedJobIndex * 0.5}px)`
+                                        }}
+                                    />
+                                    {jobs.map(job => {
+                                        const isSelected = selectedJob === job;
+                                        return (
+                                            <button
+                                                key={job}
+                                                type="button"
+                                                onClick={() => setSelectedJob(job)}
+                                                className={`relative flex-1 text-center font-bold text-[11px] transition-colors duration-200 z-10 focus:outline-none cursor-pointer ${
+                                                    isSelected ? 'text-slate-950 font-extrabold' : 'text-slate-400 hover:text-slate-200'
+                                                }`}
+                                            >
+                                                {job}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
-                            <div className="space-y-2 bg-[#0f141c]/40 p-3 rounded-xl border border-slate-800">
-                                <span className="font-semibold text-amber-400 block text-[11px]">👑 핵심 코어 유물 (BOSS)</span>
-                                <div className="space-y-1.5">
-                                    <CustomRelicSelect label="첫 번째 코어 유물" relics={bossRelics} selectedValue={main1} onChange={setMain1} />
-                                    <CustomRelicSelect label="두 번째 코어 유물" relics={bossRelics} selectedValue={main2} onChange={setMain2} />
-                                    <CustomRelicSelect label="세 번째 코어 유물" relics={bossRelics} selectedValue={main3} onChange={setMain3} />
+                            {/* 핵심 코어 유물 (BOSS) */}
+                            <div className="space-y-3 bg-[#0f141c]/40 p-3 rounded-xl border border-slate-800">
+                                <span className="font-bold text-amber-400 block text-[11px]">👑 핵심 코어 유물 (BOSS)</span>
+                                <div className="space-y-2.5">
+                                    <CustomRelicSelect label="첫 번째 코어 유물" relics={bossRelicsForMain1} selectedValue={main1} onChange={setMain1} />
+                                    <CustomRelicSelect label="두 번째 코어 유물" relics={bossRelicsForMain2} selectedValue={main2} onChange={setMain2} />
+                                    <CustomRelicSelect label="세 번째 코어 유물" relics={bossRelicsForMain3} selectedValue={main3} onChange={setMain3} />
                                 </div>
                             </div>
 
+                            {/* 추천 상점 유물 (SHOP) */}
                             <div className="space-y-1.5">
-                                <span className="font-semibold text-emerald-400 block text-[11px]">🛒 추천 상점 유물 (SHOP)</span>
-                                <div className="bg-[#0f141c] border border-slate-700 rounded-xl p-2 h-36 overflow-y-auto space-y-0.5 divide-y divide-slate-800/40">
+                                <span className="font-bold text-emerald-400 flex items-center gap-1 text-[11px]">🛒 추천 상점 유물 (SHOP)</span>
+                                <div className="bg-[#0f141c] border border-slate-800 rounded-xl p-2 h-36 overflow-y-auto space-y-0.5 divide-y divide-slate-800/40 custom-scrollbar">
                                     {shopRelicsPool.map(r => {
                                         const isChecked = selectedSides.includes(r.id);
                                         return (
-                                            <label key={r.id} className={`flex items-center justify-between cursor-pointer p-1.5 rounded-lg transition text-[11px] ${isChecked ? 'bg-emerald-500/5 border border-emerald-500/20' : 'hover:bg-slate-800/30 border border-transparent'}`}>
+                                            <label key={r.id} className={`flex items-center justify-between cursor-pointer p-1.5 rounded-lg transition-all text-[11px] ${isChecked ? 'bg-emerald-500/5 border border-emerald-500/20' : 'hover:bg-slate-800/30 border border-transparent'}`}>
                                                 <div className="flex items-center gap-2">
-                                                    <img src={r.image_url} alt="" className="w-4 h-4 object-contain" />
-                                                    <span className="text-slate-200 font-medium">{r.korean_name}</span>
+                                                    <img src={r.imageUrl} alt="" className="w-4 h-4 object-contain" />
+                                                    <span className="text-slate-200 font-bold">{r.koreanName} <span className="text-[9px] text-slate-500 font-normal">({r.job})</span></span>
                                                 </div>
-                                                <input type="checkbox" checked={isChecked} onChange={() => handleSideToggle(r.id)} className="rounded border-slate-700 text-emerald-500 focus:ring-0 bg-slate-900 w-3.5 h-3.5 cursor-pointer" />
+                                                <div className="relative flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isChecked}
+                                                        onChange={() => handleSideToggle(r.id)}
+                                                        className="appearance-none w-4 h-4 rounded-md border border-slate-700 bg-slate-900 checked:bg-emerald-500 checked:border-emerald-500 transition-all cursor-pointer focus:outline-none"
+                                                    />
+                                                    {isChecked && (
+                                                        <svg className="absolute w-2.5 h-2.5 text-slate-950 pointer-events-none left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 font-extrabold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    )}
+                                                </div>
                                             </label>
                                         );
                                     })}
                                 </div>
                             </div>
 
+                            {/* 추천 사이드 유물 (SIDE) */}
                             <div className="space-y-1.5">
-                                <span className="font-semibold text-blue-400 block text-[11px]">🔗 추천 사이드 유물 (SIDE)</span>
-                                <div className="bg-[#0f141c] border border-slate-700 rounded-xl p-2 h-36 overflow-y-auto space-y-0.5 divide-y divide-slate-800/40">
+                                <span className="font-bold text-blue-400 flex items-center gap-1 text-[11px]">🔗 추천 사이드 유물 (SIDE)</span>
+                                <div className="bg-[#0f141c] border border-slate-800 rounded-xl p-2 h-36 overflow-y-auto space-y-0.5 divide-y divide-slate-800/40 custom-scrollbar">
                                     {sideRelicsPool.map(r => {
                                         const isChecked = selectedSides.includes(r.id);
                                         return (
-                                            <label key={r.id} className={`flex items-center justify-between cursor-pointer p-1.5 rounded-lg transition text-[11px] ${isChecked ? 'bg-blue-500/5 border border-blue-500/20' : 'hover:bg-slate-800/30 border border-transparent'}`}>
+                                            <label key={r.id} className={`flex items-center justify-between cursor-pointer p-1.5 rounded-lg transition-all text-[11px] ${isChecked ? 'bg-blue-500/5 border border-blue-500/20' : 'hover:bg-slate-800/30 border border-transparent'}`}>
                                                 <div className="flex items-center gap-2">
-                                                    <img src={r.image_url} alt="" className="w-4 h-4 object-contain" />
-                                                    <span className="text-slate-200 font-medium">{r.korean_name}</span>
+                                                    <img src={r.imageUrl} alt="" className="w-4 h-4 object-contain" />
+                                                    <span className="text-slate-200 font-bold">{r.koreanName} <span className="text-[9px] text-slate-500 font-normal">({r.job})</span></span>
                                                 </div>
-                                                <input type="checkbox" checked={isChecked} onChange={() => handleSideToggle(r.id)} className="rounded border-slate-700 text-blue-500 focus:ring-0 bg-slate-900 w-3.5 h-3.5 cursor-pointer" />
+                                                <div className="relative flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isChecked}
+                                                        onChange={() => handleSideToggle(r.id)}
+                                                        className="appearance-none w-4 h-4 rounded-md border border-slate-700 bg-slate-900 checked:bg-blue-500 checked:border-blue-500 transition-all cursor-pointer focus:outline-none"
+                                                    />
+                                                    {isChecked && (
+                                                        <svg className="absolute w-2.5 h-2.5 text-slate-950 pointer-events-none left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 font-extrabold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    )}
+                                                </div>
                                             </label>
                                         );
                                     })}
@@ -352,25 +409,25 @@ export default function EditPostPage() {
                         <div className="md:col-span-7 flex flex-col justify-between space-y-4">
                             <div className="space-y-3 flex-1 flex flex-col">
                                 <div>
-                                    <label className="text-slate-400 block mb-1 font-medium">공략 제목 수정</label>
+                                    <label className="text-slate-400 block mb-1 font-bold pl-1">공략 게시글 제목</label>
                                     <input
                                         type="text" required value={title} onChange={e => setTitle(e.target.value)}
-                                        className="w-full bg-[#0f141c] border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-amber-400 text-xs font-semibold"
+                                        className="w-full bg-[#0f141c] border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-amber-400 text-xs font-bold"
                                     />
                                 </div>
 
                                 <div className="flex-1 flex flex-col min-h-[360px]">
-                                    <div className="flex justify-between items-center mb-1">
+                                    <div className="flex justify-between items-center mb-1.5">
                                         <div className="flex bg-[#0f141c] p-1 rounded-xl border border-slate-800 gap-1">
                                             <button
                                                 type="button" onClick={() => setActiveTab('write')}
-                                                className={`px-3 py-1.5 rounded-lg font-bold text-[11px] transition ${activeTab === 'write' ? 'bg-amber-400 text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}
+                                                className={`px-3 py-1.5 rounded-lg font-bold text-[11px] transition cursor-pointer ${activeTab === 'write' ? 'bg-amber-400 text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}
                                             >
                                                 ✏️ 에디터 수정
                                             </button>
                                             <button
                                                 type="button" onClick={() => setActiveTab('preview')}
-                                                className={`px-3 py-1.5 rounded-lg font-bold text-[11px] transition ${activeTab === 'preview' ? 'bg-amber-400 text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}
+                                                className={`px-3 py-1.5 rounded-lg font-bold text-[11px] transition cursor-pointer ${activeTab === 'preview' ? 'bg-amber-400 text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}
                                             >
                                                 👁️ 실시간 미리보기
                                             </button>
@@ -380,10 +437,10 @@ export default function EditPostPage() {
                                     {activeTab === 'write' ? (
                                         <textarea
                                             required value={content} onChange={e => setContent(e.target.value)}
-                                            className="w-full flex-1 bg-[#0f141c] border border-slate-700 rounded-xl px-4 py-3.5 text-slate-200 focus:outline-none focus:border-amber-400 text-xs resize-none leading-relaxed font-mono"
+                                            className="w-full flex-1 bg-[#0f141c] border border-slate-800 rounded-xl px-4 py-3.5 text-slate-200 focus:outline-none focus:border-amber-400 text-xs resize-none leading-relaxed font-mono custom-scrollbar"
                                         />
                                     ) : (
-                                        <div className="w-full flex-1 bg-[#0f141c] border border-slate-700 rounded-xl px-4 py-3.5 overflow-y-auto text-xs leading-relaxed text-slate-300">
+                                        <div className="w-full flex-1 bg-[#0f141c] border border-slate-800 rounded-xl px-4 py-3.5 overflow-y-auto text-xs leading-relaxed text-slate-300 custom-scrollbar">
                                             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                                                 {content}
                                             </ReactMarkdown>
@@ -394,10 +451,10 @@ export default function EditPostPage() {
 
                             {/* 제출 버튼 하단 영역 */}
                             <div className="flex justify-end gap-2 pt-2 border-t border-slate-800/80">
-                                <Link href={`/board/${postId}`} className="w-24 text-center bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl transition flex items-center justify-center">
+                                <Link href={`/board/${postId}`} className="w-24 text-center bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl transition flex items-center justify-center cursor-pointer">
                                     취소
                                 </Link>
-                                <button type="submit" className="w-56 bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold py-2.5 rounded-xl transition shadow-lg text-xs tracking-wider">
+                                <button type="submit" className="w-56 bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold py-2.5 rounded-xl transition shadow-lg text-xs tracking-wider cursor-pointer">
                                     수정 완료하고 저장 🚀
                                 </button>
                             </div>

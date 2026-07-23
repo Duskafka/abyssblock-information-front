@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { getCompassSrc } from '@/app/constants/compass';
+// 🧭 로컬 유물 데이터 직접 import
+import { RELICS_DATA } from '@/app/constants/relics';
 
 interface BuildPostCardProps {
     post: any;
-    relics: any[];
 }
 
-export default function BuildPostCard({ post, relics }: BuildPostCardProps) {
+export default function BuildPostCard({ post }: BuildPostCardProps) {
     const currentRank = post.compass_rank || 'NULL';
     const compassSrc = getCompassSrc(currentRank);
 
@@ -47,6 +48,7 @@ export default function BuildPostCard({ post, relics }: BuildPostCardProps) {
             </div>
 
             <div className="space-y-2.5 pt-1">
+                {/* 👑 핵심 유물 (m1, m2, m3) */}
                 <div className="flex flex-wrap items-center gap-2">
                     <span className="text-[11px] font-bold text-amber-400 w-16">👑 핵심:</span>
                     <div className="flex flex-wrap gap-1.5">
@@ -59,17 +61,18 @@ export default function BuildPostCard({ post, relics }: BuildPostCardProps) {
                     </div>
                 </div>
 
+                {/* 🔗 사이드 유물 (RELICS_DATA에서 direct lookup + koreanName, imageUrl 적용) */}
                 {post.side_relics && post.side_relics.length > 0 && (
                     <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/40">
                         <span className="text-[11px] font-bold text-slate-400 w-16">🔗 사이드:</span>
                         <div className="flex flex-wrap gap-1.5">
                             {post.side_relics.map((sideId: string) => {
-                                const relicInfo = relics.find(r => r.id === sideId);
+                                const relicInfo = RELICS_DATA.find(r => r.id === sideId);
                                 if (!relicInfo) return null;
                                 return (
-                                    <div key={sideId} className="flex items-center gap-1 bg-[#1a2332] border border-slate-800 rounded-md px-2 py-0.5 text-[10px]" title={relicInfo.korean_name}>
-                                        <img src={relicInfo.image_url} alt="" className="w-3.5 h-3.5 object-contain" />
-                                        <span className="text-slate-400">{relicInfo.korean_name}</span>
+                                    <div key={sideId} className="flex items-center gap-1 bg-[#1a2332] border border-slate-800 rounded-md px-2 py-0.5 text-[10px]" title={relicInfo.koreanName}>
+                                        <img src={relicInfo.imageUrl} alt="" className="w-3.5 h-3.5 object-contain" />
+                                        <span className="text-slate-400">{relicInfo.koreanName}</span>
                                     </div>
                                 );
                             })}

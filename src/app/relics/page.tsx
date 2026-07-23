@@ -1,13 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
+import { useState } from 'react';
 import Link from 'next/link';
-
-const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// RELICS_DATA 및 Relic 인터페이스가 선언된 경로에 맞춰 import 경로를 확인해주세요.
+import { RELICS_DATA, Relic } from '@/app/constants/relics';
 
 // 💡 쉼표(,)로 구분된 중복 직업 문자열 분해 및 공통 이모지(🪙) 반영
 const getJobEmojis = (jobString: string) => {
@@ -26,51 +22,22 @@ const getJobEmojis = (jobString: string) => {
 };
 
 export default function RelicsArchivePage() {
-    const [relics, setRelics] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    // 💡 Supabase 로딩 대신 static 파일 데이터(RELICS_DATA) 적용
+    // job이 'none'인 유물은 클라이언트 필터링하여 초기화합니다.
+    const [relics] = useState<Relic[]>(() =>
+        RELICS_DATA.filter(relic => relic.job && relic.job.toLowerCase().trim() !== 'none')
+    );
 
     // 검색 및 필터 상태
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedGrade, setSelectedGrade] = useState<string>('all');
     const [selectedJob, setSelectedJob] = useState<string>('all');
 
-    useEffect(() => {
-        async function fetchAllRelics() {
-            try {
-                setLoading(true);
-
-                // 💡 [수정] 존재하지 않는 type 대신, job 컬럼에서 대소문자 구분 없이 'none'을 제외합니다.
-                const { data, error } = await supabase
-                    .from('relics')
-                    .select('*')
-                    .not('job', 'ilike', 'none')
-                    .order('korean_name');
-
-                if (error) {
-                    console.error("Supabase 에러:", error.message);
-                    return;
-                }
-
-                // 2. 클라이언트 레벨 2중 안전장치: job이 'none'인 유물 완벽 차단
-                const sanitizedData = (data || []).filter(
-                    relic => relic.job && relic.job.toString().toLowerCase().trim() !== 'none'
-                );
-
-                setRelics(sanitizedData);
-            } catch (err) {
-                console.error('시스템 오류:', err);
-            } finally {
-                setLoading(false);
-            }
-        }
-        fetchAllRelics();
-    }, []);
-
-    // 다중 필터링 로직
+    // 다중 필터링 로직 (Relic 타입 속성에 맞춰 camelCase 적용)
     const filteredRelics = relics.filter(relic => {
         const matchesSearch =
-            relic.korean_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            relic.english_name.toLowerCase().includes(searchQuery.toLowerCase());
+            relic.koreanName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            relic.englishName.toLowerCase().includes(searchQuery.toLowerCase());
 
         const matchesGrade = selectedGrade === 'all' || relic.grade === selectedGrade;
 
@@ -82,14 +49,6 @@ export default function RelicsArchivePage() {
 
         return matchesSearch && matchesGrade && matchesJob;
     });
-
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-[#0f141c] flex items-center justify-center text-slate-400 text-sm tracking-wide">
-                황금 유물 도감을 동기화하는 중... 🪙
-            </div>
-        );
-    }
 
     return (
         <div className="min-h-screen bg-[#0f141c] text-slate-100 font-sans pb-20">
@@ -179,14 +138,14 @@ export default function RelicsArchivePage() {
                             {/* 1. 왼쪽 덩어리: 유물 아이콘 + 이름 스펙 */}
                             <div className="flex items-center gap-4 min-w-[280px] max-w-[320px] shrink-0">
                                 <div className="w-14 h-14 flex items-center justify-center bg-[#0f141c] rounded-xl border border-slate-700/60 p-2.5 shrink-0 shadow-inner group-hover:scale-105 transition-transform">
-                                    <img src={relic.image_url} alt="" className="w-full h-full object-contain" />
+                                    <img src={relic.imageUrl} alt={relic.koreanName} className="w-full h-full object-contain" />
                                 </div>
                                 <div className="space-y-0.5 truncate">
                                     <h4 className="text-sm font-extrabold text-slate-200 truncate">
-                                        {relic.korean_name}
+                                        {relic.koreanName}
                                     </h4>
                                     <p className="text-[11px] font-mono text-slate-500 uppercase tracking-tight truncate">
-                                        {relic.english_name}
+                                        {relic.englishName}
                                     </p>
                                     <span className="inline-block text-[10px] text-amber-400/90 font-semibold bg-amber-400/5 px-2 py-0.5 border border-amber-400/10 rounded-md">
                                         {getJobEmojis(relic.job)}

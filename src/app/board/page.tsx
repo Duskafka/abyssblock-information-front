@@ -5,6 +5,9 @@ import { createBrowserClient } from '@supabase/ssr';
 import CreateBuildModal from './components/CreateBuildModal';
 import BuildPostCard from './components/BuildPostCard';
 
+// 🧭 로컬 유물 데이터 import
+import { RELICS_DATA } from '@/app/constants/relics';
+
 const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -12,7 +15,6 @@ const supabase = createBrowserClient(
 
 export default function BoardPage() {
     const [user, setUser] = useState<any>(null);
-    const [relics, setRelics] = useState<any[]>([]);
     const [posts, setPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -21,28 +23,43 @@ export default function BoardPage() {
     const fetchBoardData = async () => {
         try {
             setLoading(true);
-            const { data: relicData } = await supabase.from('relics').select('*').order('korean_name');
-            const relicList = relicData || [];
-            setRelics(relicList);
-            const relicMap = new Map(relicList.map(r => [r.id, r]));
 
-            const { data: rawPosts } = await supabase.from('posts').select('*').order('created_at', { ascending: false });
+            // 1. RELICS_DATA 기반 Map 구성 (DB 조회 제거)
+            const relicMap = new Map(RELICS_DATA.map(r => [r.id, r]));
+
+            // 2. 게시글 정보 단독 로드
+            const { data: rawPosts } = await supabase
+                .from('posts')
+                .select('*')
+                .order('created_at', { ascending: false });
+
             if (!rawPosts) {
                 setPosts([]);
                 return;
             }
 
+            // 3. 프로필 정보(나침반 등급) 조회
             const { data: profileData } = await supabase.from('profiles').select('id, compass_rank');
             const profileMap = new Map(profileData?.map(p => [p.id, p.compass_rank]) || []);
 
+            // 4. 로컬 유물 데이터 매핑
             const formattedPosts = rawPosts.map(post => {
                 const compassRank = profileMap.get(post.user_id) || 'NULL';
                 return {
                     ...post,
                     compass_rank: compassRank,
-                    m1: relicMap.get(post.main_relic_1) ? { korean_name: relicMap.get(post.main_relic_1).korean_name, image_url: relicMap.get(post.main_relic_1).image_url } : null,
-                    m2: relicMap.get(post.main_relic_2) ? { korean_name: relicMap.get(post.main_relic_2).korean_name, image_url: relicMap.get(post.main_relic_2).image_url } : null,
-                    m3: relicMap.get(post.main_relic_3) ? { korean_name: relicMap.get(post.main_relic_3).korean_name, image_url: relicMap.get(post.main_relic_3).image_url } : null,
+                    m1: relicMap.get(post.main_relic_1) ? {
+                        korean_name: relicMap.get(post.main_relic_1)!.koreanName,
+                        image_url: relicMap.get(post.main_relic_1)!.imageUrl
+                    } : null,
+                    m2: relicMap.get(post.main_relic_2) ? {
+                        korean_name: relicMap.get(post.main_relic_2)!.koreanName,
+                        image_url: relicMap.get(post.main_relic_2)!.imageUrl
+                    } : null,
+                    m3: relicMap.get(post.main_relic_3) ? {
+                        korean_name: relicMap.get(post.main_relic_3)!.koreanName,
+                        image_url: relicMap.get(post.main_relic_3)!.imageUrl
+                    } : null,
                 };
             });
 
@@ -85,7 +102,7 @@ export default function BoardPage() {
                             if (!user) return alert('로그인 후 이용할 수 있습니다.');
                             setIsModalOpen(true);
                         }}
-                        className="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition shadow-lg"
+                        className="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition shadow-lg cursor-pointer"
                     >
                         <span>📝</span> 빌드 공유하기
                     </button>
@@ -96,7 +113,7 @@ export default function BoardPage() {
                         <button
                             key={tab}
                             onClick={() => setActiveFilterTab(tab)}
-                            className={`px-4 py-2 rounded-lg font-bold text-xs transition ${
+                            className={`px-4 py-2 rounded-lg font-bold text-xs transition cursor-pointer ${
                                 activeFilterTab === tab ? 'bg-amber-400 text-slate-900 shadow-md' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
                             }`}
                         >
@@ -114,7 +131,9 @@ export default function BoardPage() {
                 ) : (
                     <div className="space-y-4">
                         {filteredPosts.map(post => (
-                            <BuildPostCard key={post.id} post={post} relics={relics} />
+                            // 💡 BuildPostCard에도 RELICS_DATA를 사용하도록 relics props를 건네주지 않거나,
+                            // 컴포넌트 내부에서 RELICS_DATA를 직접 참조하도록 변경할 수 있습니다.
+                            <BuildPostCard key={post.id} post={post} relics={RELICS_DATA} />
                         ))}
                     </div>
                 )}
@@ -123,7 +142,6 @@ export default function BoardPage() {
             {isModalOpen && (
                 <CreateBuildModal
                     user={user}
-                    relics={relics}
                     supabase={supabase}
                     onClose={() => setIsModalOpen(false)}
                     onSuccess={() => {

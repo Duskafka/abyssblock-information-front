@@ -6,6 +6,9 @@ import remarkGfm from 'remark-gfm';
 import { z } from 'zod';
 import { checkProfanity } from '@/app/constants/profanity';
 
+// 💡 작성해주신 relics.ts 경로에서 유물 상수 데이터 및 타입 가져오기
+import { RELICS_DATA, Relic } from '@/app/constants/relics';
+
 const postSchema = z.object({
     title: z.string()
         .min(2, { message: "제목은 최소 2글자 이상이어야 합니다." })
@@ -30,7 +33,7 @@ const markdownComponents = {
 
 function CustomRelicSelect({ label, relics, selectedValue, onChange }: {
     label: string;
-    relics: any[];
+    relics: Relic[];
     selectedValue: string;
     onChange: (id: string) => void;
 }) {
@@ -59,8 +62,8 @@ function CustomRelicSelect({ label, relics, selectedValue, onChange }: {
             >
                 {selectedRelic ? (
                     <div className="flex items-center gap-2">
-                        <img src={selectedRelic.image_url} alt="" className="w-4 h-4 object-contain" />
-                        <span className="text-slate-200 font-bold text-xs">{selectedRelic.korean_name}</span>
+                        <img src={selectedRelic.imageUrl} alt="" className="w-4 h-4 object-contain" />
+                        <span className="text-slate-200 font-bold text-xs">{selectedRelic.koreanName}</span>
                     </div>
                 ) : (
                     <span className="text-slate-500 font-medium text-xs">-- {label} 선택 --</span>
@@ -73,7 +76,7 @@ function CustomRelicSelect({ label, relics, selectedValue, onChange }: {
                 </svg>
             </button>
 
-            {/* 1️⃣ 드롭다운 박스 스크롤바 커스텀 적용 */}
+            {/* 드롭다운 박스 */}
             {isOpen && (
                 <div className="absolute left-0 right-0 mt-2 bg-[#111622] border border-slate-800 rounded-xl shadow-2xl z-50 max-h-56 overflow-y-auto p-1.5 space-y-0.5 custom-scrollbar">
                     <button
@@ -94,8 +97,8 @@ function CustomRelicSelect({ label, relics, selectedValue, onChange }: {
                                     : 'text-slate-400 hover:bg-[#161d2a] hover:text-white'
                             }`}
                         >
-                            <img src={r.image_url} alt="" className="w-4 h-4 object-contain shrink-0" />
-                            <span>{r.korean_name}</span>
+                            <img src={r.imageUrl} alt="" className="w-4 h-4 object-contain shrink-0" />
+                            <span>{r.koreanName}</span>
                         </button>
                     ))}
                 </div>
@@ -106,13 +109,12 @@ function CustomRelicSelect({ label, relics, selectedValue, onChange }: {
 
 interface CreateBuildModalProps {
     user: any;
-    relics: any[];
     supabase: any;
     onClose: () => void;
     onSuccess: () => void;
 }
 
-export default function CreateBuildModal({ user, relics, supabase, onClose, onSuccess }: CreateBuildModalProps) {
+export default function CreateBuildModal({ user, supabase, onClose, onSuccess }: CreateBuildModalProps) {
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [selectedJob, setSelectedJob] = useState('기사');
@@ -182,8 +184,9 @@ export default function CreateBuildModal({ user, relics, supabase, onClose, onSu
         }
     };
 
-    const filteredRelicsByJob = relics.filter(r => {
-        if (!r.job) return false;
+    // 💡 RELICS_DATA 기반으로 직업별 유물 필터링 ('none' 직업 제외 및 common / 직업별 포함)
+    const filteredRelicsByJob = RELICS_DATA.filter(r => {
+        if (!r.job || r.job.toLowerCase().trim() === 'none') return false;
         const cleanJob = r.job.replace(/\s+/g, '');
         return cleanJob.includes('common') || cleanJob.includes(selectedJob);
     });
@@ -192,13 +195,12 @@ export default function CreateBuildModal({ user, relics, supabase, onClose, onSu
     const shopRelicsPool = filteredRelicsByJob.filter(r => r.grade === 'shop');
     const sideRelicsPool = filteredRelicsByJob.filter(r => r.grade === 'side');
 
-    // ⛔ 핵심 코어 유물 실시간 중복 제거 필터링 추가
+    // 핵심 코어 유물 중복 선택 방지 필터링
     const bossRelicsForMain1 = bossRelics.filter(r => r.id !== main2 && r.id !== main3);
     const bossRelicsForMain2 = bossRelics.filter(r => r.id !== main1 && r.id !== main3);
     const bossRelicsForMain3 = bossRelics.filter(r => r.id !== main1 && r.id !== main2);
 
     return (
-        /* 2️⃣ 창 크기가 작아질 때 작동하는 모달 전체 컨테이너 스크롤바 커스텀 적용 */
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in">
             <div className="bg-[#161d2a] w-full max-w-4xl rounded-2xl border border-slate-800 p-6 space-y-4 shadow-2xl overflow-y-auto max-h-[95vh] custom-scrollbar">
                 <div className="flex justify-between items-center border-b border-slate-800 pb-3">
@@ -210,11 +212,10 @@ export default function CreateBuildModal({ user, relics, supabase, onClose, onSu
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                         <div className="md:col-span-5 space-y-4 border-r border-slate-800/60 pr-1 md:pr-4">
 
-                            {/* 🎯 라디오 버튼을 부드러운 슬라이더 바로 변경 완료 */}
+                            {/* 직업 선택 슬라이더 */}
                             <div className="space-y-1.5">
                                 <label className="text-amber-400 font-bold block text-[11px]">🎯 빌드 대상 직업군</label>
                                 <div className="relative flex bg-[#0f141c] p-1 rounded-xl border border-slate-800 h-9 overflow-hidden select-none">
-                                    {/* 미끄러지는 배경 슬라이드 바 블록 */}
                                     <div
                                         className="absolute top-1 bottom-1 bg-amber-400 rounded-lg transition-all duration-300 ease-out shadow-md"
                                         style={{
@@ -240,17 +241,17 @@ export default function CreateBuildModal({ user, relics, supabase, onClose, onSu
                                 </div>
                             </div>
 
+                            {/* 코어 유물 (BOSS) */}
                             <div className="space-y-3 bg-[#0f141c]/40 p-3 rounded-xl border border-slate-800">
                                 <span className="font-bold text-amber-400 block text-[11px]">👑 핵심 코어 유물 (BOSS)</span>
                                 <div className="space-y-2.5">
-                                    {/* 각 드롭다운 컴포넌트에 중복 제거된 유물 목록 바인딩 */}
                                     <CustomRelicSelect label="첫 번째 코어 유물" relics={bossRelicsForMain1} selectedValue={main1} onChange={setMain1} />
                                     <CustomRelicSelect label="두 번째 코어 유물" relics={bossRelicsForMain2} selectedValue={main2} onChange={setMain2} />
                                     <CustomRelicSelect label="세 번째 코어 유물" relics={bossRelicsForMain3} selectedValue={main3} onChange={setMain3} />
                                 </div>
                             </div>
 
-                            {/* 3️⃣ 상점 유물 스크롤 풀 + 에메랄드 커스텀 체크박스 조합 */}
+                            {/* 추천 상점 유물 (SHOP) */}
                             <div className="space-y-1.5">
                                 <span className="font-bold text-emerald-400 flex items-center gap-1 text-[11px]">🛒 추천 상점 유물 (SHOP)</span>
                                 <div className="bg-[#0f141c] border border-slate-800 rounded-xl p-2 h-36 overflow-y-auto space-y-0.5 divide-y divide-slate-800/40 custom-scrollbar">
@@ -259,8 +260,8 @@ export default function CreateBuildModal({ user, relics, supabase, onClose, onSu
                                         return (
                                             <label key={r.id} className={`flex items-center justify-between cursor-pointer p-1.5 rounded-lg transition-all text-[11px] ${isChecked ? 'bg-emerald-500/5 border border-emerald-500/20' : 'hover:bg-slate-800/30 border border-transparent'}`}>
                                                 <div className="flex items-center gap-2">
-                                                    <img src={r.image_url} alt="" className="w-4 h-4 object-contain" />
-                                                    <span className="text-slate-200 font-bold">{r.korean_name} <span className="text-[9px] text-slate-500 font-normal">({r.job})</span></span>
+                                                    <img src={r.imageUrl} alt="" className="w-4 h-4 object-contain" />
+                                                    <span className="text-slate-200 font-bold">{r.koreanName} <span className="text-[9px] text-slate-500 font-normal">({r.job})</span></span>
                                                 </div>
                                                 <div className="relative flex items-center">
                                                     <input
@@ -281,7 +282,7 @@ export default function CreateBuildModal({ user, relics, supabase, onClose, onSu
                                 </div>
                             </div>
 
-                            {/* 4️⃣ 사이드 유물 스크롤 풀 + 블루 커스텀 체크박스 조합 */}
+                            {/* 추천 사이드 유물 (SIDE) */}
                             <div className="space-y-1.5">
                                 <span className="font-bold text-blue-400 flex items-center gap-1 text-[11px]">🔗 추천 사이드 유물 (SIDE)</span>
                                 <div className="bg-[#0f141c] border border-slate-800 rounded-xl p-2 h-36 overflow-y-auto space-y-0.5 divide-y divide-slate-800/40 custom-scrollbar">
@@ -290,8 +291,8 @@ export default function CreateBuildModal({ user, relics, supabase, onClose, onSu
                                         return (
                                             <label key={r.id} className={`flex items-center justify-between cursor-pointer p-1.5 rounded-lg transition-all text-[11px] ${isChecked ? 'bg-blue-500/5 border border-blue-500/20' : 'hover:bg-slate-800/30 border border-transparent'}`}>
                                                 <div className="flex items-center gap-2">
-                                                    <img src={r.image_url} alt="" className="w-4 h-4 object-contain" />
-                                                    <span className="text-slate-200 font-bold">{r.korean_name} <span className="text-[9px] text-slate-500 font-normal">({r.job})</span></span>
+                                                    <img src={r.imageUrl} alt="" className="w-4 h-4 object-contain" />
+                                                    <span className="text-slate-200 font-bold">{r.koreanName} <span className="text-[9px] text-slate-500 font-normal">({r.job})</span></span>
                                                 </div>
                                                 <div className="relative flex items-center">
                                                     <input
@@ -345,7 +346,6 @@ export default function CreateBuildModal({ user, relics, supabase, onClose, onSu
                                         <span className="text-[10px] text-slate-500 font-medium"># 대제목 / **굵게** / - 리스트</span>
                                     </div>
 
-                                    {/* 5️⃣ 텍스트 에디터 및 마크다운 미리보기 컴포넌트 스크롤바 커스텀 적용 */}
                                     {activeTab === 'write' ? (
                                         <textarea
                                             required value={content} onChange={e => setContent(e.target.value)}

@@ -7,8 +7,9 @@ import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-// 🧭 작성하신 중앙 관리 파일에서 나침반 이미지 경로 반환 함수를 import 합니다.
+// 🧭 비속어, 나침반 및 로컬 유물 데이터 import
 import { getCompassSrc } from '@/app/constants/compass';
+import { RELICS_DATA } from '@/app/constants/relics';
 
 const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -36,7 +37,6 @@ export default function PostDetailPage() {
 
     const [user, setUser] = useState<any>(null);
     const [post, setPost] = useState<any>(null);
-    const [relics, setRelics] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isDeleting, setIsDeleting] = useState(false);
 
@@ -47,13 +47,10 @@ export default function PostDetailPage() {
                 const { data: { session } } = await supabase.auth.getSession();
                 setUser(session?.user ?? null);
 
-                // 2. 유물 정보 로드 및 Map 구성
-                const { data: relicData } = await supabase.from('relics').select('*');
-                const relicList = relicData || [];
-                setRelics(relicList);
-                const relicMap = new Map(relicList.map(r => [r.id, r]));
+                // 2. RELICS_DATA 기반 Map 구성 (DB 파싱 제거)
+                const relicMap = new Map(RELICS_DATA.map(r => [r.id, r]));
 
-                // 3. 게시글 정보 단독 로드 (조인 에러 영구 차단)
+                // 3. 게시글 정보 단독 로드
                 const { data: postData, error } = await supabase
                     .from('posts')
                     .select('*')
@@ -70,16 +67,15 @@ export default function PostDetailPage() {
                     .eq('id', postData.user_id)
                     .single();
 
-                // 💡 폴백 기본값을 시스템 설계에 맞춰 'NULL'로 연동합니다.
                 const authorRank = profileData?.compass_rank || 'NULL';
 
-                // 5. 메모리 상에서 데이터 가공 후 상태 주입
+                // 5. 로컬 유물 데이터 매핑
                 const formattedPost = {
                     ...postData,
                     compass_rank: authorRank,
-                    m1: relicMap.get(postData.main_relic_1) ? { korean_name: relicMap.get(postData.main_relic_1).korean_name, image_url: relicMap.get(postData.main_relic_1).image_url } : null,
-                    m2: relicMap.get(postData.main_relic_2) ? { korean_name: relicMap.get(postData.main_relic_2).korean_name, image_url: relicMap.get(postData.main_relic_2).image_url } : null,
-                    m3: relicMap.get(postData.main_relic_3) ? { korean_name: relicMap.get(postData.main_relic_3).korean_name, image_url: relicMap.get(postData.main_relic_3).image_url } : null,
+                    m1: relicMap.get(postData.main_relic_1) ? { korean_name: relicMap.get(postData.main_relic_1)!.koreanName, image_url: relicMap.get(postData.main_relic_1)!.imageUrl } : null,
+                    m2: relicMap.get(postData.main_relic_2) ? { korean_name: relicMap.get(postData.main_relic_2)!.koreanName, image_url: relicMap.get(postData.main_relic_2)!.imageUrl } : null,
+                    m3: relicMap.get(postData.main_relic_3) ? { korean_name: relicMap.get(postData.main_relic_3)!.koreanName, image_url: relicMap.get(postData.main_relic_3)!.imageUrl } : null,
                 };
 
                 setPost(formattedPost);
@@ -131,7 +127,7 @@ export default function PostDetailPage() {
 
     const isAuthor = user && user.id === post.user_id;
 
-    // 🧭 중앙 함수를 활용해 등급별 나침반 이미지 소스를 동적으로 매핑합니다.
+    // 🧭 등급별 나침반 이미지 소스를 동적으로 매핑합니다.
     const currentRank = post.compass_rank || 'NULL';
     const compassSrc = getCompassSrc(currentRank);
 
@@ -189,7 +185,7 @@ export default function PostDetailPage() {
                             </div>
                         </div>
 
-                        {/* 본인 글일 때만 우측 상단에 수정 및 삭제 버튼 묶음 배치 */}
+                        {/* 작성자 본인 제어 버튼 */}
                         {isAuthor && (
                             <div className="flex items-center gap-2 shrink-0">
                                 <Link
@@ -202,7 +198,7 @@ export default function PostDetailPage() {
                                     type="button"
                                     onClick={handleDeletePost}
                                     disabled={isDeleting}
-                                    className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-bold text-xs px-4 py-2.5 rounded-xl transition shadow-md disabled:opacity-50"
+                                    className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-bold text-xs px-4 py-2.5 rounded-xl transition shadow-md disabled:opacity-50 cursor-pointer"
                                 >
                                     {isDeleting ? '지우는 중...' : '🗑️ 삭제'}
                                 </button>
@@ -229,12 +225,12 @@ export default function PostDetailPage() {
                                 <span className="text-xs font-bold text-slate-400 w-16 shrink-0">🔗 사이드:</span>
                                 <div className="flex flex-wrap gap-1.5">
                                     {post.side_relics.map((sideId: string) => {
-                                        const relicInfo = relics.find(r => r.id === sideId);
+                                        const relicInfo = RELICS_DATA.find(r => r.id === sideId);
                                         if (!relicInfo) return null;
                                         return (
-                                            <div key={sideId} className="flex items-center gap-1.5 bg-[#1a2332] border border-slate-800/60 rounded-lg px-2.5 py-1 text-[11px]" title={relicInfo.korean_name}>
-                                                <img src={relicInfo.image_url} alt="" className="w-3.5 h-3.5 object-contain" />
-                                                <span className="text-slate-400">{relicInfo.korean_name}</span>
+                                            <div key={sideId} className="flex items-center gap-1.5 bg-[#1a2332] border border-slate-800/60 rounded-lg px-2.5 py-1 text-[11px]" title={relicInfo.koreanName}>
+                                                <img src={relicInfo.imageUrl} alt="" className="w-3.5 h-3.5 object-contain" />
+                                                <span className="text-slate-400">{relicInfo.koreanName}</span>
                                             </div>
                                         );
                                     })}
