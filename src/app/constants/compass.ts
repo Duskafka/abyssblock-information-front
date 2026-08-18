@@ -9,6 +9,7 @@ export const COMPASS_IMAGES: Record<string, string> = {
     'GOLDEN': '/compass/golden_compass.png',
     'EMERALD': '/compass/emerald_compass.png',
     'DIAMOND': '/compass/diamond_compass.png',
+    'ECHO': '/compass/echo_compass.png'
 };
 
 /**
