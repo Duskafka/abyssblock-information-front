@@ -13,6 +13,12 @@ const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+// 📱 모바일 패널에서 반복 사용하는 행 스타일 (활성/비활성)
+const mobileRowBase = 'flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition';
+const mobileSubBase = 'flex items-center justify-between gap-2 pl-7 pr-3 py-2 rounded-lg text-xs font-medium transition';
+const mobileRowActive = 'bg-amber-400/10 text-amber-400 font-bold';
+const mobileRowIdle = 'text-slate-300 hover:bg-slate-800/60 hover:text-white';
+
 export default function Header() {
     const pathname = usePathname();
     const [user, setUser] = useState<any>(null);
@@ -24,9 +30,12 @@ export default function Header() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // 💡 드롭다운 수동 제어용 상태 관리
+    // 💡 드롭다운 수동 제어용 상태 관리 (데스크톱은 호버, 모바일 패널은 클릭 아코디언으로 공유)
     const [isCommunityDropdownOpen, setIsCommunityDropdownOpen] = useState(false);
     const [isGameDropdownOpen, setIsGameDropdownOpen] = useState(false); // 🕹️ 미니게임 드롭다운 상태 추가
+
+    // 📱 좁은 화면용 햄버거 패널 상태
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     // 📢 커뮤니티 카테고리 활성화 판별 로직들
     const isNoticeActive = pathname.startsWith('/notice');
@@ -71,6 +80,26 @@ export default function Header() {
         return () => subscription.unsubscribe();
     }, []);
 
+    // 🔄 라우트가 바뀌면 열려 있던 패널/아코디언을 모두 닫는다.
+    //    Link 이동은 Header를 언마운트하지 않으므로 직접 정리해야 한다 (뒤로가기까지 커버).
+    //    pathname은 본문에서 읽지 않고 "라우트가 바뀌었다"는 트리거로만 쓴다. 지우면 마운트 시 1회만 돈다.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: 의도된 트리거 의존성
+    useEffect(() => {
+        setIsMobileMenuOpen(false);
+        setIsGameDropdownOpen(false);
+        setIsCommunityDropdownOpen(false);
+    }, [pathname]);
+
+    // ⌨️ Escape 키로 모바일 패널 닫기
+    useEffect(() => {
+        if (!isMobileMenuOpen) return;
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setIsMobileMenuOpen(false);
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [isMobileMenuOpen]);
+
     const handleEmailLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!email || !password) return alert('이메일과 비밀번호를 모두 입력해 주세요.');
@@ -97,194 +126,391 @@ export default function Header() {
         else window.location.reload();
     };
 
+    // 모바일 패널에서 열릴 때는 패널을 먼저 접고 모달을 띄운다.
+    const openLoginModal = () => {
+        setIsMobileMenuOpen(false);
+        setIsModalOpen(true);
+    };
+
     const displayName = profile?.minecraft_username || user?.email?.split('@')[0];
     const compassSrc = getCompassSrc(profile?.compass_rank);
+    const rankLabel = profile?.compass_rank || 'BRONZE';
 
     return (
         <>
-            <header className="border-b border-slate-800 bg-[#161d2a]/90 px-4 md:px-6 py-4 sticky top-0 z-40 backdrop-blur">
-                <div className="max-w-6xl mx-auto flex flex-nowrap justify-between items-center gap-4 select-none">
+            <header className="border-b border-slate-800 bg-[#161d2a]/90 px-4 md:px-6 py-3 md:py-4 sticky top-0 z-40 backdrop-blur">
+                <div className="max-w-6xl mx-auto select-none">
+                    <div className="flex items-center justify-between gap-3">
 
-                    {/* 로고 영역 */}
-                    <Link href="/" className="flex items-center gap-2 text-lg md:text-xl font-bold text-amber-400 tracking-wider group shrink-0 whitespace-nowrap">
-                        <img
-                            src="/icon.png"
-                            alt="서버 아이콘"
-                            className="w-6 h-6 object-contain [image-rendering:pixelated] transition-transform group-hover:scale-105"
-                        />
-                        <span className="flex flex-col md:flex-row md:items-center leading-none">
-                            <span>Abyssblock</span>
-                            <span className="md:ml-1.5 text-slate-200">Info</span>
-                        </span>
-                    </Link>
+                        {/* 로고 영역 */}
+                        <Link href="/" className="flex items-center gap-2 text-lg md:text-xl font-bold text-amber-400 tracking-wider group shrink-0 whitespace-nowrap">
+                            <img
+                                src="/icon.png"
+                                alt="서버 아이콘"
+                                className="w-6 h-6 object-contain [image-rendering:pixelated] transition-transform group-hover:scale-105"
+                            />
+                            <span className="flex flex-col md:flex-row md:items-center leading-none">
+                                <span>Abyssblock</span>
+                                <span className="md:ml-1.5 text-slate-200">Info</span>
+                            </span>
+                        </Link>
 
-                    {/* 메뉴 및 로그인 영역 전체 컨테이너 */}
-                    <div className="flex flex-nowrap items-center gap-3 md:gap-4 text-xs md:text-sm shrink-0">
-                        <nav className="flex gap-3.5 md:gap-6 items-center shrink-0 whitespace-nowrap">
-                            <Link href="/" className={`transition ${pathname === '/' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
+                        {/* 🖥️ 데스크톱(lg 이상) 메뉴 및 로그인 영역 — 그 아래로는 햄버거 패널이 대신한다.
+                            전체 행이 약 840px를 요구하므로 md(768px)가 아니라 lg(1024px)에서 전환한다. */}
+                        <div className="hidden lg:flex flex-nowrap items-center gap-3 xl:gap-4 text-sm shrink-0">
+                            <nav className="flex gap-5 xl:gap-6 items-center shrink-0 whitespace-nowrap">
+                                <Link href="/" className={`transition ${pathname === '/' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
+                                    📈 시세 현황판
+                                </Link>
+                                <Link href="/relics" className={`transition ${pathname === '/relics' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
+                                    📜 유물 도감
+                                </Link>
+
+                                {/* 🕹️ 미니게임 & 인게임 시뮬레이터 드롭다운 메뉴 */}
+                                <div
+                                    className="relative group py-2"
+                                    onMouseEnter={() => setIsGameDropdownOpen(true)}
+                                    onMouseLeave={() => setIsGameDropdownOpen(false)}
+                                >
+                                    <button
+                                        type="button"
+                                        aria-haspopup="true"
+                                        aria-expanded={isGameDropdownOpen}
+                                        onClick={() => setIsGameDropdownOpen((prev) => !prev)}
+                                        className={`flex items-center gap-1 transition focus:outline-none ${
+                                            isGameActive ? 'text-amber-400 font-bold' : 'text-slate-400 group-hover:text-slate-200'
+                                        }`}
+                                    >
+                                        <span>🕹️ 미니게임</span>
+                                        <svg className={`w-3 h-3 transition-transform duration-200 ${isGameDropdownOpen ? 'rotate-180 text-amber-400' : 'text-slate-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+
+                                    {/* 🎁 미니게임 서브메뉴 박스 */}
+                                    <div className={`absolute left-0 mt-2 w-52 bg-[#161d2a] border border-slate-800 rounded-xl shadow-2xl p-1.5 transition-all duration-200 origin-top z-50 ${
+                                        isGameDropdownOpen
+                                            ? 'opacity-100 scale-100 visible translate-y-0'
+                                            : 'opacity-0 scale-95 invisible -translate-y-2 pointer-events-none'
+                                    }`}>
+                                        <Link
+                                            href="/games/artifact"
+                                            onClick={() => setIsGameDropdownOpen(false)}
+                                            className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
+                                                isArtifactGameActive ? 'bg-amber-400/10 text-amber-400 font-bold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                                            }`}
+                                        >
+                                            <span className="flex items-center gap-1.5">🔮 유물 인챈트 제단</span>
+                                            <span className="text-[9px] bg-amber-400/20 text-amber-400 px-1 py-0.5 rounded font-bold">HOT</span>
+                                        </Link>
+
+                                        {/* 🛡️ 새로 제작 완료된 데미지 시뮬레이터 추가 슬롯 */}
+                                        <Link
+                                            href="/games/calculator"
+                                            onClick={() => setIsGameDropdownOpen(false)}
+                                            className={`flex items-center px-3 py-2 rounded-lg text-xs font-medium transition ${
+                                                isCalculatorGameActive ? 'bg-amber-400/10 text-amber-400 font-bold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                                            }`}
+                                        >
+                                            🛡️ 데미지 감산 시뮬레이터
+                                        </Link>
+                                    </div>
+                                </div>
+
+                                {/* 커뮤니티 드롭다운 메뉴 슬롯 */}
+                                <div
+                                    className="relative group py-2"
+                                    onMouseEnter={() => setIsCommunityDropdownOpen(true)}
+                                    onMouseLeave={() => setIsCommunityDropdownOpen(false)}
+                                >
+                                    <button
+                                        type="button"
+                                        aria-haspopup="true"
+                                        aria-expanded={isCommunityDropdownOpen}
+                                        onClick={() => setIsCommunityDropdownOpen((prev) => !prev)}
+                                        className={`flex items-center gap-1 transition focus:outline-none ${
+                                            isCommunityActive ? 'text-amber-400 font-bold' : 'text-slate-400 group-hover:text-slate-200'
+                                        }`}
+                                    >
+                                        <span>💬 커뮤니티</span>
+                                        <svg className={`w-3 h-3 transition-transform duration-200 ${isCommunityDropdownOpen ? 'rotate-180 text-amber-400' : 'text-slate-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+
+                                    {/* 드롭다운 서브메뉴 박스 */}
+                                    <div className={`absolute left-0 mt-2 w-44 bg-[#161d2a] border border-slate-800 rounded-xl shadow-2xl p-1.5 transition-all duration-200 origin-top z-50 ${
+                                        isCommunityDropdownOpen
+                                            ? 'opacity-100 scale-100 visible translate-y-0'
+                                            : 'opacity-0 scale-95 invisible -translate-y-2 pointer-events-none'
+                                    }`}>
+                                        <Link
+                                            href="/notice"
+                                            onClick={() => setIsCommunityDropdownOpen(false)}
+                                            className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
+                                                isNoticeActive ? 'bg-amber-400/10 text-amber-400 font-bold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                                            }`}
+                                        >
+                                            <span className="flex items-center gap-1.5">📢 공지사항</span>
+                                            <span className="flex h-1.5 w-1.5 relative">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                                            </span>
+                                        </Link>
+
+                                        <Link
+                                            href="/board"
+                                            onClick={() => setIsCommunityDropdownOpen(false)}
+                                            className={`flex items-center px-3 py-2 rounded-lg text-xs font-medium transition ${
+                                                isBoardActive ? 'bg-amber-400/10 text-amber-400 font-bold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                                            }`}
+                                        >
+                                            🛡️ 빌드 공유 게시판
+                                        </Link>
+
+                                        <Link
+                                            href="/shop"
+                                            onClick={() => setIsCommunityDropdownOpen(false)}
+                                            className={`flex items-center px-3 py-2 rounded-lg text-xs font-medium transition ${
+                                                isShopActive ? 'bg-amber-400/10 text-amber-400 font-bold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                                            }`}
+                                        >
+                                            🛒 어비스 연동 장터
+                                        </Link>
+                                    </div>
+                                </div>
+                            </nav>
+
+                            <div className="h-4 w-[1px] bg-slate-800 shrink-0" />
+
+                            {/* 로그인 / 프로필 영역 */}
+                            {user ? (
+                                <div className="flex flex-nowrap items-center gap-2 xl:gap-3 shrink-0">
+                                    <Link
+                                        href="/mypage"
+                                        className={`text-xs px-2.5 py-1 rounded-lg border transition shrink-0 whitespace-nowrap ${
+                                            pathname === '/mypage'
+                                                ? 'bg-amber-400/10 text-amber-400 border-amber-400/30 font-bold'
+                                                : 'text-slate-300 border-slate-800 hover:border-slate-700 bg-slate-800/40 hover:bg-slate-800'
+                                        }`}
+                                    >
+                                        마이페이지
+                                    </Link>
+
+                                    <div className="flex flex-nowrap items-center gap-2 bg-slate-900/60 border border-slate-800 px-2.5 py-1 rounded-xl shrink-0 whitespace-nowrap">
+                                        <img
+                                            src={compassSrc}
+                                            alt={`${rankLabel} 랭크`}
+                                            className="w-4 h-4 object-contain shrink-0"
+                                            title={`등급: ${rankLabel}`}
+                                        />
+                                        <span className="text-slate-400 text-xs font-medium">
+                                            {/* 긴 마인크래프트 닉네임이 헤더를 다시 밀어내지 않도록 잘라낸다 */}
+                                            <span className="text-slate-200 font-semibold inline-block max-w-[7rem] truncate align-bottom">{displayName}</span>님
+                                        </span>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={handleLogout}
+                                        className="text-[11px] text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-700 px-2.5 py-1 rounded-lg transition shrink-0 whitespace-nowrap"
+                                    >
+                                        로그아웃
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={openLoginModal}
+                                    className="bg-amber-400/10 hover:bg-amber-400 text-amber-400 hover:text-slate-900 border border-amber-400/20 px-3 py-1.5 rounded-xl font-bold text-xs transition shrink-0 whitespace-nowrap"
+                                >
+                                    로그인
+                                </button>
+                            )}
+                        </div>
+
+                        {/* 📱 좁은 화면(lg 미만) 상단 클러스터: 로그인 상태 + 햄버거 */}
+                        <div className="flex lg:hidden items-center gap-2 shrink-0">
+                            {user ? (
+                                <img
+                                    src={compassSrc}
+                                    alt={`${rankLabel} 랭크`}
+                                    className="w-5 h-5 object-contain shrink-0"
+                                    title={`등급: ${rankLabel}`}
+                                />
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={openLoginModal}
+                                    className="bg-amber-400/10 hover:bg-amber-400 text-amber-400 hover:text-slate-900 border border-amber-400/20 px-2.5 py-1.5 rounded-xl font-bold text-[11px] transition shrink-0 whitespace-nowrap"
+                                >
+                                    로그인
+                                </button>
+                            )}
+
+                            <button
+                                type="button"
+                                onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+                                aria-label={isMobileMenuOpen ? '메뉴 닫기' : '메뉴 열기'}
+                                aria-expanded={isMobileMenuOpen}
+                                aria-controls="mobile-nav"
+                                className="p-2 -mr-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/60 transition focus:outline-none"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    {isMobileMenuOpen ? (
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                    ) : (
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                                    )}
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* 📱 햄버거로 펼쳐지는 모바일 네비게이션 패널 */}
+                    <div
+                        id="mobile-nav"
+                        className={`lg:hidden overflow-hidden transition-all duration-300 ease-out ${
+                            isMobileMenuOpen ? 'max-h-[calc(100vh-5rem)] opacity-100' : 'max-h-0 opacity-0'
+                        }`}
+                    >
+                        {/* 헤더의 좌우 패딩을 상쇄해 구분선을 화면 가장자리까지 늘린다 */}
+                        <div className="mt-3 -mx-4 md:-mx-6 px-4 md:px-6 pt-3 pb-1 border-t border-slate-800 max-h-[calc(100vh-7rem)] overflow-y-auto custom-scrollbar">
+                            <Link
+                                href="/"
+                                className={`${mobileRowBase} ${pathname === '/' ? mobileRowActive : mobileRowIdle}`}
+                            >
                                 📈 시세 현황판
                             </Link>
-                            <Link href="/relics" className={`transition ${pathname === '/relics' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
+
+                            <Link
+                                href="/relics"
+                                className={`${mobileRowBase} ${pathname === '/relics' ? mobileRowActive : mobileRowIdle}`}
+                            >
                                 📜 유물 도감
                             </Link>
 
-                            {/* 🕹️ 미니게임 & 인게임 시뮬레이터 드롭다운 메뉴 */}
-                            <div
-                                className="relative group py-2"
-                                onMouseEnter={() => setIsGameDropdownOpen(true)}
-                                onMouseLeave={() => setIsGameDropdownOpen(false)}
-                            >
-                                <button
-                                    className={`flex items-center gap-1 transition focus:outline-none ${
-                                        isGameActive ? 'text-amber-400 font-bold' : 'text-slate-400 group-hover:text-slate-200'
-                                    }`}
-                                >
-                                    <span>🕹️ 미니게임</span>
-                                    <svg className={`w-3 h-3 transition-transform duration-200 ${isGameDropdownOpen ? 'rotate-180 text-amber-400' : 'text-slate-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
-
-                                {/* 🎁 미니게임 서브메뉴 박스 */}
-                                <div className={`absolute left-0 mt-2 w-52 bg-[#161d2a] border border-slate-800 rounded-xl shadow-2xl p-1.5 transition-all duration-200 origin-top z-50 ${
-                                    isGameDropdownOpen
-                                        ? 'opacity-100 scale-100 visible translate-y-0'
-                                        : 'opacity-0 scale-95 invisible -translate-y-2 pointer-events-none'
-                                }`}>
-                                    <Link
-                                        href="/games/artifact"
-                                        onClick={() => setIsGameDropdownOpen(false)}
-                                        className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
-                                            isArtifactGameActive ? 'bg-amber-400/10 text-amber-400 font-bold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
-                                        }`}
-                                    >
-                                        <span className="flex items-center gap-1.5">🔮 유물 인챈트 제단</span>
-                                        <span className="text-[9px] bg-amber-400/20 text-amber-400 px-1 py-0.5 rounded font-bold">HOT</span>
-                                    </Link>
-
-                                    {/* 🛡️ 새로 제작 완료된 데미지 시뮬레이터 추가 슬롯 */}
-                                    <Link
-                                        href="/games/calculator"
-                                        onClick={() => setIsGameDropdownOpen(false)}
-                                        className={`flex items-center px-3 py-2 rounded-lg text-xs font-medium transition ${
-                                            isCalculatorGameActive ? 'bg-amber-400/10 text-amber-400 font-bold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
-                                        }`}
-                                    >
-                                        🛡️ 데미지 감산 시뮬레이터
-                                    </Link>
-                                </div>
-                            </div>
-
-                            {/* 커뮤니티 드롭다운 메뉴 슬롯 */}
-                            <div
-                                className="relative group py-2"
-                                onMouseEnter={() => setIsCommunityDropdownOpen(true)}
-                                onMouseLeave={() => setIsCommunityDropdownOpen(false)}
-                            >
-                                <button
-                                    className={`flex items-center gap-1 transition focus:outline-none ${
-                                        isCommunityActive ? 'text-amber-400 font-bold' : 'text-slate-400 group-hover:text-slate-200'
-                                    }`}
-                                >
-                                    <span>💬 커뮤니티</span>
-                                    <svg className={`w-3 h-3 transition-transform duration-200 ${isCommunityDropdownOpen ? 'rotate-180 text-amber-400' : 'text-slate-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
-
-                                {/* 드롭다운 서브메뉴 박스 */}
-                                <div className={`absolute left-0 mt-2 w-44 bg-[#161d2a] border border-slate-800 rounded-xl shadow-2xl p-1.5 transition-all duration-200 origin-top z-50 ${
-                                    isCommunityDropdownOpen
-                                        ? 'opacity-100 scale-100 visible translate-y-0'
-                                        : 'opacity-0 scale-95 invisible -translate-y-2 pointer-events-none'
-                                }`}>
-                                    <Link
-                                        href="/notice"
-                                        onClick={() => setIsCommunityDropdownOpen(false)}
-                                        className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
-                                            isNoticeActive ? 'bg-amber-400/10 text-amber-400 font-bold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
-                                        }`}
-                                    >
-                                        <span className="flex items-center gap-1.5">📢 공지사항</span>
-                                        <span className="flex h-1.5 w-1.5 relative">
-                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
-                                        </span>
-                                    </Link>
-
-                                    <Link
-                                        href="/board"
-                                        onClick={() => setIsCommunityDropdownOpen(false)}
-                                        className={`flex items-center px-3 py-2 rounded-lg text-xs font-medium transition ${
-                                            isBoardActive ? 'bg-amber-400/10 text-amber-400 font-bold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
-                                        }`}
-                                    >
-                                        🛡️ 빌드 공유 게시판
-                                    </Link>
-
-                                    <Link
-                                        href="/shop"
-                                        onClick={() => setIsCommunityDropdownOpen(false)}
-                                        className={`flex items-center px-3 py-2 rounded-lg text-xs font-medium transition ${
-                                            isShopActive ? 'bg-amber-400/10 text-amber-400 font-bold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
-                                        }`}
-                                    >
-                                        🛒 어비스 연동 장터
-                                    </Link>
-                                </div>
-                            </div>
-                        </nav>
-
-                        <div className="h-4 w-[1px] bg-slate-800 shrink-0" />
-
-                        {/* 로그인 / 프로필 영역 */}
-                        {user ? (
-                            <div className="flex flex-nowrap items-center gap-2 md:gap-3 shrink-0">
-                                <Link
-                                    href="/mypage"
-                                    className={`text-[11px] md:text-xs px-2 md:px-2.5 py-1 rounded-lg border transition shrink-0 whitespace-nowrap ${
-                                        pathname === '/mypage'
-                                            ? 'bg-amber-400/10 text-amber-400 border-amber-400/30 font-bold'
-                                            : 'text-slate-300 border-slate-800 hover:border-slate-700 bg-slate-800/40 hover:bg-slate-800'
-                                    }`}
-                                >
-                                    마이페이지
-                                </Link>
-
-                                <div className="flex flex-nowrap items-center gap-1.5 md:gap-2 bg-slate-900/60 border border-slate-800 px-2 md:px-2.5 py-1 rounded-xl shrink-0 whitespace-nowrap">
-                                    <img
-                                        src={compassSrc}
-                                        alt={`${profile?.compass_rank || 'BRONZE'} 랭크`}
-                                        className="w-3.5 h-3.5 md:w-4 h-4 object-contain"
-                                        title={`등급: ${profile?.compass_rank || 'BRONZE'}`}
-                                    />
-                                    <span className="text-slate-400 text-[11px] md:text-xs font-medium">
-                                        <span className="text-slate-200 font-semibold">{displayName}</span>님
-                                    </span>
-                                </div>
-
-                                <button
-                                    onClick={handleLogout}
-                                    className="text-[10px] md:text-[11px] text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-700 px-2 md:px-2.5 py-1 rounded-lg transition shrink-0 whitespace-nowrap"
-                                >
-                                    로그아웃
-                                </button>
-                            </div>
-                        ) : (
+                            {/* 🕹️ 미니게임 아코디언 */}
                             <button
-                                onClick={() => setIsModalOpen(true)}
-                                className="bg-amber-400/10 hover:bg-amber-400 text-amber-400 hover:text-slate-900 border border-amber-400/20 px-2.5 md:px-3 py-1.5 rounded-xl font-bold text-[11px] md:text-xs transition shrink-0 whitespace-nowrap"
+                                type="button"
+                                aria-expanded={isGameDropdownOpen}
+                                onClick={() => setIsGameDropdownOpen((prev) => !prev)}
+                                className={`w-full ${mobileRowBase} ${isGameActive ? mobileRowActive : mobileRowIdle}`}
                             >
-                                로그인
+                                <span>🕹️ 미니게임</span>
+                                <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${isGameDropdownOpen ? 'rotate-180 text-amber-400' : 'text-slate-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                                </svg>
                             </button>
-                        )}
+
+                            <div className={`overflow-hidden transition-all duration-200 ${isGameDropdownOpen ? 'max-h-40' : 'max-h-0'}`}>
+                                <Link
+                                    href="/games/artifact"
+                                    className={`${mobileSubBase} ${isArtifactGameActive ? mobileRowActive : mobileRowIdle}`}
+                                >
+                                    <span>🔮 유물 인챈트 제단</span>
+                                    <span className="text-[9px] bg-amber-400/20 text-amber-400 px-1 py-0.5 rounded font-bold shrink-0">HOT</span>
+                                </Link>
+                                <Link
+                                    href="/games/calculator"
+                                    className={`${mobileSubBase} ${isCalculatorGameActive ? mobileRowActive : mobileRowIdle}`}
+                                >
+                                    🛡️ 데미지 감산 시뮬레이터
+                                </Link>
+                            </div>
+
+                            {/* 💬 커뮤니티 아코디언 */}
+                            <button
+                                type="button"
+                                aria-expanded={isCommunityDropdownOpen}
+                                onClick={() => setIsCommunityDropdownOpen((prev) => !prev)}
+                                className={`w-full ${mobileRowBase} ${isCommunityActive ? mobileRowActive : mobileRowIdle}`}
+                            >
+                                <span>💬 커뮤니티</span>
+                                <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${isCommunityDropdownOpen ? 'rotate-180 text-amber-400' : 'text-slate-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+
+                            <div className={`overflow-hidden transition-all duration-200 ${isCommunityDropdownOpen ? 'max-h-48' : 'max-h-0'}`}>
+                                <Link
+                                    href="/notice"
+                                    className={`${mobileSubBase} ${isNoticeActive ? mobileRowActive : mobileRowIdle}`}
+                                >
+                                    <span>📢 공지사항</span>
+                                    <span className="flex h-1.5 w-1.5 relative shrink-0">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                                    </span>
+                                </Link>
+                                <Link
+                                    href="/board"
+                                    className={`${mobileSubBase} ${isBoardActive ? mobileRowActive : mobileRowIdle}`}
+                                >
+                                    🛡️ 빌드 공유 게시판
+                                </Link>
+                                <Link
+                                    href="/shop"
+                                    className={`${mobileSubBase} ${isShopActive ? mobileRowActive : mobileRowIdle}`}
+                                >
+                                    🛒 어비스 연동 장터
+                                </Link>
+                            </div>
+
+                            {/* 👤 인증 영역 */}
+                            <div className="mt-2 pt-3 border-t border-slate-800">
+                                {user ? (
+                                    <>
+                                        <div className="flex items-center gap-2 px-3 pb-2 min-w-0">
+                                            <img
+                                                src={compassSrc}
+                                                alt={`${rankLabel} 랭크`}
+                                                className="w-4 h-4 object-contain shrink-0"
+                                                title={`등급: ${rankLabel}`}
+                                            />
+                                            <span className="text-slate-400 text-xs font-medium truncate">
+                                                <span className="text-slate-200 font-semibold">{displayName}</span>님
+                                            </span>
+                                        </div>
+
+                                        <div className="flex gap-2">
+                                            <Link
+                                                href="/mypage"
+                                                className={`flex-1 text-center text-xs px-3 py-2 rounded-lg border transition ${
+                                                    pathname === '/mypage'
+                                                        ? 'bg-amber-400/10 text-amber-400 border-amber-400/30 font-bold'
+                                                        : 'text-slate-300 border-slate-800 hover:border-slate-700 bg-slate-800/40 hover:bg-slate-800'
+                                                }`}
+                                            >
+                                                마이페이지
+                                            </Link>
+                                            <button
+                                                type="button"
+                                                onClick={handleLogout}
+                                                className="flex-1 text-center text-xs text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-700 px-3 py-2 rounded-lg transition"
+                                            >
+                                                로그아웃
+                                            </button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={openLoginModal}
+                                        className="w-full bg-amber-400/10 hover:bg-amber-400 text-amber-400 hover:text-slate-900 border border-amber-400/20 px-3 py-2 rounded-xl font-bold text-xs transition"
+                                    >
+                                        로그인
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </header>
 
             {/* 로그인 팝업 (모달) 레이어 */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                     <div className="absolute inset-0" onClick={() => setIsModalOpen(false)} />
                     <div className="relative w-full max-w-sm p-6 bg-[#161d2a] border border-slate-800 rounded-2xl shadow-2xl z-10 text-slate-200">
                         <div className="mb-5 text-center">
