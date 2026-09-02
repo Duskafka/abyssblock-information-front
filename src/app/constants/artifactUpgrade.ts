@@ -153,3 +153,35 @@ export const ARTIFACT_UPGRADE_CHANCE = {
     FAIL_BUFF: 20,
     MAX_ATTEMPTS: 15,
 };
+
+// ==========================================
+// 🛡️ 데미지 감산 시뮬레이터(/games/calculator)가 쓰는 아티펙트 테이블
+//
+// 데미지를 실제로 깎아 주는 주옵션을 가진 아티펙트만 넣는다.
+// 국왕의 휘장은 더 이상 피해 감소 옵션이 아니라 여기서 제외했다.
+// 수치는 위 UPGRADE_TARGET_ARTIFACTS와 동일하게 유지한다(운영자 확인 완료).
+// ==========================================
+export const DAMAGE_CALC_ARTIFACTS: ArtifactConfig[] = [
+    {
+        id: 'blazing_shield',
+        koreanName: '타오르는 방패',
+        imageSrc: '/shop/artifact/blazing_shield.png',
+        category: 'ARTIFACT',
+        mainOption: {
+            name: '화염 장벽',
+            renderDescription: (v) => `30 이상의 받는 데미지 물리 ${v} 감소`,
+            values: [1, 3, 5, 7, 10, 13, 16, 20, 25, 30]
+        }
+    },
+    {
+        id: 'oasis_essence',
+        koreanName: '오아시스의 정수',
+        imageSrc: '/shop/artifact/oasis_essence.png',
+        category: 'ARTIFACT',
+        mainOption: {
+            name: '수호의 물결',
+            renderDescription: (v) => `받는 화염 피해 ${v} 감소`,
+            values: [1.0, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0, 16.0, 22.0, 30.0]
+        }
+    }
+];

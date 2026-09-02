@@ -1,14 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import Link from 'next/link';
 
 // 🧭 중앙 관리형 나침반 유틸 함수 및 등급 매핑 임포트
 import { getCompassSrc } from '@/app/constants/compass';
 // ⚙️ 올바른 대소문자 경로(UseMyPageData) 매핑 및 훅 가져오기
 import { useMyPageData } from './components/UseMyPageData';
+import PageShell from '@/components/ui/PageShell';
+import PageHeading from '@/components/ui/PageHeading';
+import Modal from '@/components/ui/Modal';
+import PixelImage from '@/components/ui/PixelImage';
+import { useToast } from '@/components/ui/Toast';
 
 export default function MyPage() {
+    const toast = useToast();
     // 💡 훅에서 번역용 함수(translateItemId)까지 함께 인계받습니다.
     const {
         user,
@@ -24,6 +30,7 @@ export default function MyPage() {
     // 🚨 회원 탈퇴 처리를 위한 상태 관리
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [confirmText, setConfirmText] = useState('');
+    const confirmTextId = useId();
     const [isWithdrawing, setIsWithdrawing] = useState(false);
 
     // 🌾 프리미엄 패스 발급 상태 관리
@@ -34,8 +41,8 @@ export default function MyPage() {
 
     const handleLogout = async () => {
         const { error } = await supabase.auth.signOut();
-        if (error) alert('로그아웃 에러: ' + error.message);
-        else alert('로그아웃 되었습니다.');
+        if (error) toast.error('로그아웃 에러: ' + error.message);
+        else toast.success('로그아웃 되었습니다.');
     };
 
     // 🎁 프리미엄 패스 발급 함수 (새로운 엣지 펑션 연동)
@@ -46,7 +53,7 @@ export default function MyPage() {
             setIsClaiming(true);
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
-                alert('인증 세션이 만료되었습니다. 다시 로그인 후 시도해 주세요.');
+                toast.success('인증 세션이 만료되었습니다. 다시 로그인 후 시도해 주세요.');
                 return;
             }
 
@@ -65,12 +72,12 @@ export default function MyPage() {
                 throw new Error(result.error || '보상 발급 중 오류가 발생했습니다.');
             }
 
-            alert('🎉 프리미엄 라이선스가 하루(24시간) 충전되었습니다! 인게임 및 프로필 카드를 확인해 보세요.');
+            toast.success('🎉 프리미엄 라이선스가 하루(24시간) 충전되었습니다! 인게임 및 프로필 카드를 확인해 보세요.');
 
             // 데이터 최신화를 위해 브라우저 새로고침 실행
             window.location.reload();
-        } catch (err: any) {
-            alert('보상 수령 실패: ' + err.message);
+        } catch (err) {
+            toast.error('보상 수령 실패: ' + (err instanceof Error ? err.message : String(err)));
         } finally {
             setIsClaiming(false);
         }
@@ -79,7 +86,7 @@ export default function MyPage() {
     // 🪓 회원 탈퇴 함수
     const handleWithdraw = async () => {
         if (confirmText !== '회원탈퇴 승인') {
-            alert("'회원탈퇴 승인'을 정확히 입력해 주세요.");
+            toast.error("'회원탈퇴 승인'을 정확히 입력해 주세요.");
             return;
         }
 
@@ -87,7 +94,7 @@ export default function MyPage() {
             setIsWithdrawing(true);
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
-                alert('인증 세션이 만료되었습니다. 다시 로그인 후 시도해 주세요.');
+                toast.success('인증 세션이 만료되었습니다. 다시 로그인 후 시도해 주세요.');
                 return;
             }
 
@@ -105,11 +112,11 @@ export default function MyPage() {
             }
 
             await supabase.auth.signOut();
-            alert(result.message || '회원 탈퇴가 완료되었습니다.');
+            toast.success(result.message || '회원 탈퇴가 완료되었습니다.');
             setIsDeleteModalOpen(false);
             window.location.href = '/';
-        } catch (err: any) {
-            alert('회원 탈퇴 실패: ' + err.message);
+        } catch (err) {
+            toast.error('회원 탈퇴 실패: ' + (err instanceof Error ? err.message : String(err)));
         } finally {
             setIsWithdrawing(false);
         }
@@ -126,7 +133,7 @@ export default function MyPage() {
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
         if (diffDays <= 0) {
-            return { isPaid: false, dDayText: '기간 만료됨', badgeColor: 'bg-red-500/10 text-red-400 border border-red-500/20' };
+            return { isPaid: false, dDayText: '기간 만료됨', badgeColor: 'bg-rose-500/10 text-rose-400 border border-rose-500/20' };
         }
 
         let badgeColor = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
@@ -148,11 +155,11 @@ export default function MyPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#0f141c] text-slate-100 flex items-center justify-center">
-                <div className="text-center space-y-2">
-                    <p className="text-sm text-slate-400">인게임 프로필 데이터를 동기화하고 있습니다...</p>
-                </div>
-            </div>
+            <PageShell width="narrow" className="space-y-6">
+                <p className="text-sm text-slate-400" role="status" aria-live="polite">
+                    인게임 프로필 데이터를 동기화하고 있습니다...
+                </p>
+            </PageShell>
         );
     }
 
@@ -160,24 +167,28 @@ export default function MyPage() {
     const premium = getPremiumStatus();
 
     return (
-        <div className="min-h-screen bg-[#0f141c] text-slate-100 font-sans">
-            <main className="max-w-xl mx-auto px-6 py-10 space-y-6">
+        <div>
+            <PageShell width="narrow" className="space-y-6">
+                <PageHeading description="인게임 프로필과 내가 올린 글·매물을 한곳에서 관리합니다.">
+                    🧭 마이페이지
+                </PageHeading>
+
                 {user ? (
                     <>
                         {/* 🌟 기존 나침반 프로필 카드 영역 */}
-                        <div className="bg-[#161d2a] border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-6">
+                        <div className="bg-abyss-800 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-6">
                             <div className="border-b border-slate-800 pb-4">
                                 <h2 className="text-xl font-bold text-amber-400 flex items-center gap-2">
                                     <span>👑</span> 내 인게임 프로필 카드
                                 </h2>
-                                <p className="text-xs text-slate-400 mt-1">클라이언트 모드와 데이터베이스가 정상적으로 실시간 동기화 중입니다.</p>
+                                <p className="text-sm text-slate-400 mt-1">클라이언트 모드와 데이터베이스가 정상적으로 실시간 동기화 중입니다.</p>
                             </div>
 
                             {profileData ? (
                                 <div className="space-y-5">
-                                    <div className="flex items-center gap-4 bg-[#0f141c] p-4 rounded-xl border border-slate-800">
+                                    <div className="flex items-center gap-4 bg-abyss-900 p-4 rounded-xl border border-slate-800">
                                         <div className="w-14 h-14 bg-amber-400/5 border border-amber-400/20 rounded-2xl flex items-center justify-center p-2.5 shrink-0 shadow-inner">
-                                            <img src={compassSrc} alt="" className="w-full h-full object-contain" />
+                                            <PixelImage src={compassSrc} alt="" className="w-full h-full object-contain" width={32} height={32} />
                                         </div>
                                         <div className="flex-1">
                                             <span className="text-xs text-amber-400/80 font-semibold uppercase tracking-wider block">
@@ -188,21 +199,20 @@ export default function MyPage() {
                                     </div>
 
                                     {/* 💳 프리미엄 라이선스 영역 */}
-                                    <div className="bg-[#0f141c] p-4 rounded-xl border border-slate-800 flex justify-between items-center shadow-inner relative overflow-hidden group">
+                                    <div className="bg-abyss-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center shadow-inner relative overflow-hidden group">
                                         <div className="flex items-center gap-3">
                                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center p-1.5 border shrink-0 transition-colors ${
                                                 premium.isPaid
                                                     ? 'bg-amber-400/5 border-amber-500/30'
                                                     : 'bg-slate-900 border-slate-800 opacity-40'
                                             }`}>
-                                                <img
+                                                <PixelImage
                                                     src={premium.isPaid ? "/pass/emoji_abyss_vip_pass.png" : "/pass/emoji_abyss_pass.png"}
                                                     alt="Abyss Pass"
                                                     className="w-full h-full object-contain pixelated"
                                                     onError={(e) => {
                                                         (e.target as HTMLImageElement).src = '/pass/abyss_pass.png';
-                                                    }}
-                                                />
+                                                    }} width={32} height={32} />
                                             </div>
 
                                             <div className="space-y-0.5">
@@ -212,11 +222,11 @@ export default function MyPage() {
                                                     </span>
                                                 </div>
                                                 {premium.isPaid ? (
-                                                    <p className="text-[11px] text-slate-400">
+                                                    <p className="text-2xs text-slate-400">
                                                         만료일: <span className="font-mono text-amber-400/90 font-medium">{premium.expireDateText}</span>
                                                     </p>
                                                 ) : (
-                                                    <p className="text-[11px] text-slate-500">현재 등록된 라이선스 제어권이 없습니다.</p>
+                                                    <p className="text-2xs text-slate-500">현재 등록된 라이선스 제어권이 없습니다.</p>
                                                 )}
                                             </div>
                                         </div>
@@ -230,36 +240,36 @@ export default function MyPage() {
 
                                     <div className="space-y-3">
                                         <div>
-                                            <span className="text-[11px] font-bold text-slate-500 uppercase block mb-1">모장 고유 UUID (Mojang UUID)</span>
-                                            <div className="w-full bg-[#0f141c] border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-400 font-mono select-all overflow-x-auto whitespace-nowrap scrollbar-none">
+                                            <span className="text-2xs font-bold text-slate-500 uppercase block mb-1">모장 고유 UUID (Mojang UUID)</span>
+                                            <div className="w-full bg-abyss-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-400 font-mono select-all overflow-x-auto whitespace-nowrap scrollbar-none">
                                                 {profileData.mojang_uuid}
                                             </div>
                                         </div>
 
                                         <div>
-                                            <span className="text-[11px] font-bold text-slate-500 uppercase block mb-1">현황판 로그인 계정 (Email)</span>
-                                            <div className="w-full bg-[#0f141c] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-300">
+                                            <span className="text-2xs font-bold text-slate-500 uppercase block mb-1">현황판 로그인 계정 (Email)</span>
+                                            <div className="w-full bg-abyss-900 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-300">
                                                 ✉️ {user?.email || '이메일 정보 없음'}
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             ) : (
-                                <div className="text-center py-6 text-sm text-red-400 bg-red-900/10 border border-red-500/20 rounded-xl">
+                                <div className="text-center py-6 text-sm text-rose-400 bg-rose-900/10 border border-rose-500/20 rounded-xl">
                                     ⚠️ 프로필 디테일을 매핑할 수 없습니다.
                                 </div>
                             )}
 
-                            <div className="bg-red-500/5 border border-red-500/10 p-4 rounded-xl flex justify-between items-center">
+                            <div className="bg-rose-500/5 border border-rose-500/10 p-4 rounded-xl flex justify-between items-center">
                                 <div className="space-y-0.5">
-                                    <h4 className="text-xs font-bold text-red-400 uppercase tracking-wider">위험 구역 (Danger Zone)</h4>
-                                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                                    <h4 className="text-xs font-bold text-rose-400 uppercase tracking-wider">위험 구역 (Danger Zone)</h4>
+                                    <p className="text-2xs text-slate-400 leading-relaxed">
                                         계정을 탈퇴하면 모든 인게임 정보 및 공유 피드가 영구 삭제됩니다.
                                     </p>
                                 </div>
-                                <button
+                                <button type="button"
                                     onClick={() => setIsDeleteModalOpen(true)}
-                                    className="bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/20 px-3.5 py-2 rounded-xl text-xs font-bold transition shrink-0"
+                                    className="bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white border border-rose-500/20 px-3.5 py-2 rounded-xl text-xs font-bold transition shrink-0"
                                 >
                                     회원 탈퇴
                                 </button>
@@ -269,7 +279,7 @@ export default function MyPage() {
                                 <Link href="/" className="text-xs text-slate-400 hover:text-slate-200 transition-colors">
                                     ← 메인 현황판으로 가기
                                 </Link>
-                                <button
+                                <button type="button"
                                     onClick={handleLogout}
                                     className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-4 py-2 rounded-xl transition-all"
                                 >
@@ -280,17 +290,17 @@ export default function MyPage() {
 
                         {/* 🌾 황금 작물 시세 공유 미션 달성 및 라이선스 발급 섹션 */}
                         {profileData && (
-                            <div className="bg-[#161d2a] border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
+                            <div className="bg-abyss-800 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
                                 <div className="border-b border-slate-800 pb-3">
                                     <div className="flex justify-between items-center">
                                         <h3 className="text-sm font-bold text-amber-400 flex items-center gap-1.5">
                                             <span>🌾</span> 하루 치 시세 데이터 완성 미션
                                         </h3>
-                                        <span className="text-[10px] text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded font-mono">
+                                        <span className="text-2xs text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded font-mono">
                     ⏱️ 20분 주기 (하루 총 72회)
                 </span>
                                     </div>
-                                    <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                                    <p className="text-2xs text-slate-400 mt-1 leading-relaxed">
                                         서버의 <span className="text-amber-400/90 font-medium">24시간 분량 시세 데이터(72회)</span> 축적에 기여하고 자동거래 프리미엄 라이선스를 획득하세요.
                                         누적된 기여도가 기준치에 도달하면 보상을 청구할 수 있습니다.
                                     </p>
@@ -304,7 +314,7 @@ export default function MyPage() {
                     {profileData.crop_share_count} / 72 회
                 </span>
                                     </div>
-                                    <div className="w-full bg-[#0f141c] rounded-full h-2.5 overflow-hidden border border-slate-800">
+                                    <div className="w-full bg-abyss-900 rounded-full h-2.5 overflow-hidden border border-slate-800">
                                         <div
                                             className={`h-full transition-all duration-500 rounded-full ${
                                                 profileData.crop_share_count >= 72
@@ -317,21 +327,21 @@ export default function MyPage() {
                                 </div>
 
                                 {/* 보상 기프트 박스 컨트롤 바 */}
-                                <div className="bg-[#0f141c] border border-slate-800 p-4 rounded-xl flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+                                <div className="bg-abyss-900 border border-slate-800 p-4 rounded-xl flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
                                     <div className="text-xs space-y-0.5">
                                         <div className="text-slate-300 font-bold flex items-center gap-1">
                                             <span>🎁</span> 미션 보상: <span className="text-amber-400 font-extrabold">프리미엄 라이선스 (1일권)</span>
                                         </div>
-                                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                                        <p className="text-2xs text-slate-500 leading-relaxed">
                                             발급 버튼 클릭 시 보유 기여 카운트가 72회 차감됩니다. <br />
                                             <span className="text-amber-500/90 font-medium">* 경제 밸런스 보호를 위해 라이선스 발급은 하루에 단 1회만 허용됩니다.</span>
                                         </p>
                                     </div>
 
-                                    <button
+                                    <button type="button"
                                         onClick={handleClaimPremiumPass}
                                         disabled={profileData.crop_share_count < 72 || isClaiming}
-                                        className={`px-5 py-2.5 rounded-xl text-xs font-black tracking-wide transition-all duration-200 text-center whitespace-nowrap focus:outline-none ${
+                                        className={`px-5 py-2.5 rounded-xl text-xs font-black tracking-wide transition-all duration-200 text-center whitespace-nowrap focus-ring ${
                                             profileData.crop_share_count >= 72 && !isClaiming
                                                 ? 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-900 font-extrabold shadow-lg cursor-pointer active:scale-98'
                                                 : 'bg-slate-800 text-slate-500 border border-slate-800/40 cursor-not-allowed font-medium'
@@ -344,32 +354,32 @@ export default function MyPage() {
                         )}
 
                         {/* 📂 하단 내 활동 내역 요약 피드 레이아웃 */}
-                        <div className="bg-[#161d2a] border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-6">
+                        <div className="bg-abyss-800 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-6">
                             <div className="border-b border-slate-800 pb-3">
                                 <h3 className="text-sm font-bold text-slate-200 flex items-center gap-1.5">
                                     <span>📂</span> 내 활동 내역 요약
                                 </h3>
-                                <p className="text-[11px] text-slate-400 mt-0.5">내가 현황판과 장터에 등록한 게시글 목록입니다.</p>
+                                <p className="text-2xs text-slate-400 mt-0.5">내가 현황판과 장터에 등록한 게시글 목록입니다.</p>
                             </div>
 
                             {contentLoading ? (
-                                <p className="text-xs text-slate-500 text-center py-6">콘텐츠 내역을 불러오는 중입니다...</p>
+                                <p className="text-sm text-slate-500 text-center py-6">콘텐츠 내역을 불러오는 중입니다...</p>
                             ) : (
                                 <div className="space-y-5 text-xs">
                                     {/* 1. 내가 공유한 빌드 공유글 목록 */}
                                     <div className="space-y-2">
-                                        <span className="font-bold text-amber-400 block text-[11px]">📝 공유한 빌드 공략 ({myPosts.length})</span>
+                                        <span className="font-bold text-amber-400 block text-2xs">📝 공유한 빌드 공략 ({myPosts.length})</span>
                                         {myPosts.length === 0 ? (
-                                            <p className="text-slate-500 py-3 bg-[#0f141c] text-center border border-slate-800 rounded-xl text-[11px]">공유한 빌드가 없습니다.</p>
+                                            <p className="text-slate-500 py-3 bg-abyss-900 text-center border border-slate-800 rounded-xl text-2xs">공유한 빌드가 없습니다.</p>
                                         ) : (
-                                            <div className="bg-[#0f141c] border border-slate-800 rounded-xl divide-y divide-slate-800/50 max-h-40 overflow-y-auto">
+                                            <div className="bg-abyss-900 border border-slate-800 rounded-xl divide-y divide-slate-800/50 max-h-40 overflow-y-auto">
                                                 {myPosts.map(post => (
-                                                    <Link key={post.id} href={`/board/${post.id}`} className="flex justify-between items-center p-3 hover:bg-[#161d2a] transition group">
+                                                    <Link key={post.id} href={`/board/${post.id}`} className="flex justify-between items-center p-3 hover:bg-abyss-800 transition group">
                                                         <div className="truncate pr-4 flex items-center gap-1.5">
-                                                            <span className="px-1.5 py-0.5 bg-amber-400/10 text-amber-400 border border-amber-400/20 rounded text-[9px] font-bold shrink-0">{post.job}</span>
+                                                            <span className="px-1.5 py-0.5 bg-amber-400/10 text-amber-400 border border-amber-400/20 rounded text-2xs font-bold shrink-0">{post.job}</span>
                                                             <span className="text-slate-300 group-hover:text-amber-400 font-medium transition-colors truncate">{post.title}</span>
                                                         </div>
-                                                        <span className="text-[10px] text-slate-500 font-mono shrink-0">{new Date(post.created_at).toLocaleDateString()}</span>
+                                                        <span className="text-2xs text-slate-500 font-mono shrink-0">{new Date(post.created_at).toLocaleDateString()}</span>
                                                     </Link>
                                                 ))}
                                             </div>
@@ -378,22 +388,22 @@ export default function MyPage() {
 
                                     {/* 2. 내가 등록한 아이템 판매글 목록 */}
                                     <div className="space-y-2">
-                                        <span className="font-bold text-emerald-400 block text-[11px]">🛒 장터 판매 물품 ({myItems.length})</span>
+                                        <span className="font-bold text-emerald-400 block text-2xs">🛒 장터 판매 물품 ({myItems.length})</span>
                                         {myItems.length === 0 ? (
-                                            <p className="text-slate-500 py-3 bg-[#0f141c] text-center border border-slate-800 rounded-xl text-[11px]">등록된 판매 물품이 없습니다.</p>
+                                            <p className="text-slate-500 py-3 bg-abyss-900 text-center border border-slate-800 rounded-xl text-2xs">등록된 판매 물품이 없습니다.</p>
                                         ) : (
-                                            <div className="bg-[#0f141c] border border-slate-800 rounded-xl divide-y divide-slate-800/50 max-h-40 overflow-y-auto">
+                                            <div className="bg-abyss-900 border border-slate-800 rounded-xl divide-y divide-slate-800/50 max-h-40 overflow-y-auto">
                                                 {myItems.map(item => (
-                                                    <Link key={item.id} href={`/shop`} className="flex justify-between items-center p-3 hover:bg-[#161d2a] transition group">
+                                                    <Link key={item.id} href={`/shop`} className="flex justify-between items-center p-3 hover:bg-abyss-800 transition group">
                                                         <div className="flex items-center gap-2 truncate pr-4">
                                                             <span className="text-slate-300 group-hover:text-emerald-400 font-medium transition-colors truncate">
                                                                 {translateItemId(item.item_id)}
                                                             </span>
-                                                            <span className="text-slate-500 text-[10px]">({item.quantity}개)</span>
+                                                            <span className="text-slate-500 text-2xs">({item.quantity}개)</span>
                                                         </div>
                                                         <div className="flex items-center gap-3 shrink-0">
-                                                            <span className="text-emerald-400 font-bold font-mono text-[11px]">{Number(item.price).toLocaleString()} E</span>
-                                                            <span className="text-[10px] text-slate-500 font-mono">{new Date(item.created_at).toLocaleDateString()}</span>
+                                                            <span className="text-emerald-400 font-bold font-mono text-2xs">{Number(item.price).toLocaleString()} E</span>
+                                                            <span className="text-2xs text-slate-500 font-mono">{new Date(item.created_at).toLocaleDateString()}</span>
                                                         </div>
                                                     </Link>
                                                 ))}
@@ -405,7 +415,7 @@ export default function MyPage() {
                         </div>
                     </>
                 ) : (
-                    <div className="bg-[#161d2a] border border-slate-800 rounded-2xl p-8 text-center space-y-4 shadow-2xl">
+                    <div className="bg-abyss-800 border border-slate-800 rounded-2xl p-8 text-center space-y-4 shadow-2xl">
                         <div className="text-4xl">🔒</div>
                         <h3 className="text-lg font-bold text-amber-400">비공개 프로필 영역</h3>
                         <p className="text-sm text-slate-400">마이페이지는 로그인이 필요한 서비스입니다.</p>
@@ -416,45 +426,48 @@ export default function MyPage() {
                         </div>
                     </div>
                 )}
-            </main>
+            </PageShell>
 
             {/* 회원 탈퇴 모달 */}
-            {isDeleteModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-                    <div className="bg-[#161d2a] w-full max-w-md rounded-2xl border border-slate-800 p-6 space-y-4 shadow-2xl">
-                        <div className="text-center space-y-2">
-                            <span className="text-3xl">⚠️</span>
-                            <h3 className="text-sm font-bold text-red-400">정말로 계정을 파기하시겠습니까?</h3>
-                            <p className="text-[11px] text-slate-400 leading-relaxed">
-                                탈퇴 시 마인크래프트 계정 연동 정보가 전면 삭제됩니다.
-                            </p>
-                        </div>
-                        <div className="space-y-1.5 bg-[#0f141c] p-3 rounded-xl border border-slate-800">
-                            <input
-                                type="text" value={confirmText} onChange={(e) => setConfirmText(e.target.value)}
-                                placeholder="회원탈퇴 승인"
-                                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-center text-slate-200 font-bold focus:outline-none"
-                            />
-                        </div>
-                        <div className="flex gap-2 text-xs font-bold">
-                            <button
-                                type="button" disabled={isWithdrawing}
-                                onClick={() => { setIsDeleteModalOpen(false); setConfirmText(''); }}
-                                className="w-1/2 bg-slate-800 text-slate-300 py-2.5 rounded-xl"
-                            >
-                                취소하기
-                            </button>
-                            <button
-                                type="button" onClick={handleWithdraw}
-                                disabled={confirmText !== '회원탈퇴 승인' || isWithdrawing}
-                                className="w-1/2 bg-red-500 text-white py-2.5 rounded-xl disabled:opacity-20"
-                            >
-                                {isWithdrawing ? '파기 진행 중...' : '확인 및 탈퇴'}
-                            </button>
-                        </div>
+            <Modal
+                open={isDeleteModalOpen}
+                onClose={() => { setIsDeleteModalOpen(false); setConfirmText(''); }}
+                title="⚠️ 정말로 계정을 파기하시겠습니까?"
+                size="md"
+            >
+                <div className="space-y-4">
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                        탈퇴 시 마인크래프트 계정 연동 정보가 전면 삭제됩니다.
+                    </p>
+                    <div className="space-y-1.5 bg-abyss-900 p-3 rounded-xl border border-slate-800">
+                        <label htmlFor={confirmTextId} className="block text-xs font-bold text-slate-400">
+                            계속하려면 <span className="text-rose-400">회원탈퇴 승인</span>을 그대로 입력하세요.
+                        </label>
+                        <input
+                            id={confirmTextId}
+                            type="text" value={confirmText} onChange={(e) => setConfirmText(e.target.value)}
+                            placeholder="회원탈퇴 승인"
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-center text-slate-200 font-bold focus-ring"
+                        />
+                    </div>
+                    <div className="flex gap-2 text-xs font-bold">
+                        <button
+                            type="button" disabled={isWithdrawing}
+                            onClick={() => { setIsDeleteModalOpen(false); setConfirmText(''); }}
+                            className="w-1/2 bg-slate-800 text-slate-300 py-2.5 rounded-xl focus-ring"
+                        >
+                            취소하기
+                        </button>
+                        <button
+                            type="button" onClick={handleWithdraw}
+                            disabled={confirmText !== '회원탈퇴 승인' || isWithdrawing}
+                            className="w-1/2 bg-rose-500 text-white py-2.5 rounded-xl disabled:opacity-20 focus-ring"
+                        >
+                            {isWithdrawing ? '파기 진행 중...' : '확인 및 탈퇴'}
+                        </button>
                     </div>
                 </div>
-            )}
+            </Modal>
         </div>
     );
 }

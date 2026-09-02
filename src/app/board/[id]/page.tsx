@@ -1,42 +1,33 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, notFound } from 'next/navigation';
 import Link from 'next/link';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import Markdown from '@/components/Markdown';
 
 // 🧭 비속어, 나침반 및 로컬 유물 데이터 import
 import { getCompassSrc } from '@/app/constants/compass';
 import { RELICS_DATA } from '@/app/constants/relics';
+import PageShell from '@/components/ui/PageShell';
+import PixelImage from '@/components/ui/PixelImage';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { getBrowserSupabase } from '@/lib/supabase';
+import type { PostWithRelics } from '@/lib/db-types';
+import type { User } from '@supabase/supabase-js';
 
-const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabase = getBrowserSupabase();
 
-const markdownComponents = {
-    h1: ({ ...props }) => <h1 className="text-2xl font-bold text-amber-400 mt-6 mb-3 border-b border-slate-800 pb-2" {...props} />,
-    h2: ({ ...props }) => <h2 className="text-xl font-bold text-amber-400 mt-5 mb-2.5" {...props} />,
-    h3: ({ ...props }) => <h3 className="text-lg font-bold text-amber-500 mt-4 mb-2" {...props} />,
-    p: ({ ...props }) => <p className="my-3 leading-relaxed text-slate-300 text-[15px]" {...props} />,
-    strong: ({ ...props }) => <strong className="font-extrabold text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded" {...props} />,
-    em: ({ ...props }) => <em className="italic text-slate-400" {...props} />,
-    ul: ({ ...props }) => <ul className="list-disc pl-6 my-3 space-y-1.5 text-slate-300 text-[15px]" {...props} />,
-    ol: ({ ...props }) => <ol className="list-decimal pl-6 my-3 space-y-1.5 text-slate-300 text-[15px]" {...props} />,
-    li: ({ ...props }) => <li className="marker:text-amber-400 text-slate-300" {...props} />,
-    code: ({ ...props }) => <code className="bg-slate-800 text-amber-300 px-1.5 py-0.5 rounded font-mono text-xs" {...props} />,
-    blockquote: ({ ...props }) => <blockquote className="border-l-4 border-slate-600 pl-4 italic text-slate-400 my-3 bg-slate-900/30 py-1 rounded-r" {...props} />,
-};
 
 export default function PostDetailPage() {
+    const toast = useToast();
+    const confirmAction = useConfirm();
     const router = useRouter();
     const params = useParams();
     const postId = params.id as string;
 
-    const [user, setUser] = useState<any>(null);
-    const [post, setPost] = useState<any>(null);
+    const [user, setUser] = useState<User | null>(null);
+    const [post, setPost] = useState<PostWithRelics | null>(null);
     const [loading, setLoading] = useState(true);
     const [isDeleting, setIsDeleting] = useState(false);
 
@@ -70,7 +61,7 @@ export default function PostDetailPage() {
                 const authorRank = profileData?.compass_rank || 'NULL';
 
                 // 5. 로컬 유물 데이터 매핑
-                const formattedPost = {
+                const formattedPost: PostWithRelics = {
                     ...postData,
                     compass_rank: authorRank,
                     m1: relicMap.get(postData.main_relic_1) ? { korean_name: relicMap.get(postData.main_relic_1)!.koreanName, image_url: relicMap.get(postData.main_relic_1)!.imageUrl } : null,
@@ -81,7 +72,7 @@ export default function PostDetailPage() {
                 setPost(formattedPost);
             } catch (err) {
                 console.error(err);
-                alert('게시글을 불러올 수 없거나 삭제된 게시글입니다.');
+                toast.error('게시글을 불러올 수 없거나 삭제된 게시글입니다.');
                 router.push('/board');
             } finally {
                 setLoading(false);
@@ -91,9 +82,13 @@ export default function PostDetailPage() {
     }, [postId, router]);
 
     const handleDeletePost = async () => {
-        if (!window.confirm('정말로 이 공략 게시글을 삭제하시겠습니까? ⚠️\n삭제된 데이터는 복구할 수 없습니다.')) {
-            return;
-        }
+        const approved = await confirmAction({
+            title: '⚠️ 공략 게시글을 삭제할까요?',
+            description: '삭제된 데이터는 복구할 수 없습니다.',
+            confirmLabel: '삭제하기',
+            destructive: true,
+        });
+        if (!approved) return;
 
         try {
             setIsDeleting(true);
@@ -105,11 +100,11 @@ export default function PostDetailPage() {
 
             if (error) throw error;
 
-            alert('공략 게시글이 안전하게 삭제되었습니다. 🗑️');
+            toast.success('공략 게시글이 안전하게 삭제되었습니다. 🗑️');
             router.push('/board');
             router.refresh();
-        } catch (err: any) {
-            alert(`삭제 실패: ${err.message}`);
+        } catch (err) {
+            toast.error(`삭제 실패: ${err instanceof Error ? err.message : String(err)}`);
         } finally {
             setIsDeleting(false);
         }
@@ -117,13 +112,16 @@ export default function PostDetailPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#0f141c] text-slate-100 flex items-center justify-center">
-                <p className="text-sm text-slate-400">공략 본문을 불러오는 중...</p>
-            </div>
+            <PageShell className="space-y-6">
+                <p className="text-sm text-slate-400" role="status" aria-live="polite">
+                    공략 본문을 불러오는 중...
+                </p>
+            </PageShell>
         );
     }
 
-    if (!post) return null;
+    // 이전에는 return null이라 없는 글이 완전한 백지 화면으로 떴다.
+    if (!post) notFound();
 
     const isAuthor = user && user.id === post.user_id;
 
@@ -132,42 +130,41 @@ export default function PostDetailPage() {
     const compassSrc = getCompassSrc(currentRank);
 
     return (
-        <div className="min-h-screen bg-[#0f141c] text-slate-100 font-sans">
-            <main className="max-w-5xl mx-auto px-6 py-10 space-y-6">
+        <div>
+            <PageShell className="space-y-6">
 
                 {/* 상단 서브 네비게이션바 */}
-                <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+                <div className="flex flex-col gap-3 border-b border-slate-800 pb-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h2 className="text-xl font-bold text-slate-200">💎 상세 빌드 공략</h2>
-                        <p className="text-xs text-slate-400 mt-1">대원님이 등록하신 상세 조합 셋업과 메커니즘을 확인하세요.</p>
+                        <p className="text-sm text-slate-400 mt-1">대원님이 등록하신 상세 조합 셋업과 메커니즘을 확인하세요.</p>
                     </div>
                     <Link
                         href="/board"
-                        className="text-xs text-amber-400 bg-amber-400/5 border border-amber-400/20 px-4 py-2 rounded-xl hover:bg-amber-400/10 transition font-bold tracking-wide"
+                        className="self-start shrink-0 text-xs text-amber-400 bg-amber-400/5 border border-amber-400/20 px-4 py-2 rounded-xl hover:bg-amber-400/10 transition font-bold tracking-wide"
                     >
                         ← 공략 목록으로 가기
                     </Link>
                 </div>
 
                 {/* 메인 카드 박스 */}
-                <div className="bg-[#161d2a] border border-slate-800 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
+                <div className="bg-abyss-800 border border-slate-800 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl">
 
                     {/* 타이틀 영역 */}
-                    <div className="border-b border-slate-800/80 pb-5 flex justify-between items-start gap-4">
-                        <div className="space-y-3">
-                            <h2 className="text-2xl font-extrabold text-slate-100 leading-snug">{post.title}</h2>
+                    <div className="border-b border-slate-800/80 pb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0 space-y-3">
+                            <h1 className="text-2xl font-extrabold text-slate-100 leading-snug">{post.title}</h1>
 
                             <div className="text-xs text-slate-400 flex flex-wrap items-center gap-y-2">
                                 <span>작성자:</span>
 
                                 {/* 🧭 등급 나침반 배지 */}
-                                <div className="flex items-center gap-1 bg-[#0f141c] px-2 py-0.5 rounded-md border border-slate-800 mx-1.5 shrink-0" title={`작성자 등급: ${currentRank}`}>
-                                    <img
+                                <div className="flex items-center gap-1 bg-abyss-900 px-2 py-0.5 rounded-md border border-slate-800 mx-1.5 shrink-0" title={`작성자 등급: ${currentRank}`}>
+                                    <PixelImage
                                         src={compassSrc}
                                         alt={currentRank}
-                                        className="w-3.5 h-3.5 object-contain"
-                                    />
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{currentRank}</span>
+                                        className="w-3.5 h-3.5 object-contain" width={14} height={14} />
+                                    <span className="text-2xs font-bold text-slate-400 uppercase tracking-tight">{currentRank}</span>
                                 </div>
 
                                 <span className="text-slate-200 font-semibold">{post.author_name}</span>
@@ -207,13 +204,13 @@ export default function PostDetailPage() {
                     </div>
 
                     {/* 빌드 조합 요약 레이아웃 */}
-                    <div className="bg-[#0f141c]/60 p-5 rounded-xl border border-slate-800/80 space-y-4">
+                    <div className="bg-abyss-900/60 p-5 rounded-xl border border-slate-800/80 space-y-4">
                         <div className="flex flex-wrap items-center gap-3">
                             <span className="text-xs font-bold text-amber-400 w-16 shrink-0">👑 핵심 유물:</span>
                             <div className="flex flex-wrap gap-2">
                                 {[post.m1, post.m2, post.m3].map((relic, idx) => relic ? (
-                                    <div key={idx} className="flex items-center gap-2 bg-[#161d2a] border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-medium shadow-sm" title={relic.korean_name}>
-                                        <img src={relic.image_url} alt="" className="w-4 h-4 object-contain" />
+                                    <div key={idx} className="flex items-center gap-2 bg-abyss-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-medium shadow-sm" title={relic.korean_name}>
+                                        <PixelImage src={relic.image_url} alt="" className="w-4 h-4 object-contain" width={16} height={16} />
                                         <span className="text-slate-200">{relic.korean_name}</span>
                                     </div>
                                 ) : null)}
@@ -228,8 +225,8 @@ export default function PostDetailPage() {
                                         const relicInfo = RELICS_DATA.find(r => r.id === sideId);
                                         if (!relicInfo) return null;
                                         return (
-                                            <div key={sideId} className="flex items-center gap-1.5 bg-[#1a2332] border border-slate-800/60 rounded-lg px-2.5 py-1 text-[11px]" title={relicInfo.koreanName}>
-                                                <img src={relicInfo.imageUrl} alt="" className="w-3.5 h-3.5 object-contain" />
+                                            <div key={sideId} className="flex items-center gap-1.5 bg-abyss-700 border border-slate-800/60 rounded-lg px-2.5 py-1 text-2xs" title={relicInfo.koreanName}>
+                                                <PixelImage src={relicInfo.imageUrl} alt="" className="w-3.5 h-3.5 object-contain" width={14} height={14} />
                                                 <span className="text-slate-400">{relicInfo.koreanName}</span>
                                             </div>
                                         );
@@ -240,14 +237,12 @@ export default function PostDetailPage() {
                     </div>
 
                     {/* 📝 마크다운 공략 본문 상세 영역 */}
-                    <div className="bg-[#0f141c] p-6 md:p-8 rounded-xl border border-slate-800 min-h-[350px] shadow-inner">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                            {post.content}
-                        </ReactMarkdown>
+                    <div className="bg-abyss-900 p-6 md:p-8 rounded-xl border border-slate-800 min-h-[350px] shadow-inner">
+                        <Markdown>{post.content}</Markdown>
                     </div>
 
                 </div>
-            </main>
+            </PageShell>
         </div>
     );
 }

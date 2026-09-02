@@ -1,22 +1,28 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
 import { getShopItemConfig } from '@/app/constants/shop';
 
 // 📂 커스텀 분리한 하위 컴포넌트들 Import
 import ShopFilterBar from './components/ShopFilterBar';
 import ShopItemCard from './components/ShopItemCard';
 import RegisterItemModal from './components/RegisterItemModal';
+import PageShell from '@/components/ui/PageShell';
+import PageHeading from '@/components/ui/PageHeading';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { getBrowserSupabase } from '@/lib/supabase';
+import type { ShopItemRow } from '@/lib/db-types';
+import type { User } from '@supabase/supabase-js';
+import type { RegisterItemPayload } from './components/RegisterItemModal';
 
-const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabase = getBrowserSupabase();
 
 export default function ShopPage() {
-    const [user, setUser] = useState<any>(null);
-    const [shopItems, setShopItems] = useState<any[]>([]);
+    const toast = useToast();
+    const confirmAction = useConfirm();
+    const [user, setUser] = useState<User | null>(null);
+    const [shopItems, setShopItems] = useState<ShopItemRow[]>([]);
     const [loading, setLoading] = useState(true);
 
     // 필터링 및 정렬 상태 관리
@@ -46,27 +52,29 @@ export default function ShopPage() {
             setShopItems(data || []);
         } catch (err) {
             console.error(err);
-            alert('장터 매물을 불러오는 중 오류가 발생했습니다.');
+            toast.error('장터 매물을 불러오는 중 오류가 발생했습니다.');
         } finally {
             setLoading(false);
         }
     }
 
     // 데이터 등록 제출 파이프라인
-    const handleRegisterItemSubmit = async (payload: any) => {
+    const handleRegisterItemSubmit = async (payload: RegisterItemPayload) => {
         const { selectedItemId, price, quantity, itemLevel, description } = payload;
         const currentConfig = getShopItemConfig(selectedItemId);
         let validatedLevel = Number(itemLevel);
 
         // 벨리데이션 체크
-        if (currentConfig?.category === 'ARTIFACT' && (validatedLevel < 4 || validatedLevel > 10)) return alert('아티팩트 범위 이상');
-        if (currentConfig?.category === 'WEAPON' && (validatedLevel < 7 || validatedLevel > 12)) return alert('무기 배율 범위 이상');
-        if (currentConfig?.category === 'ARMOR' && (validatedLevel < 0 || validatedLevel > 12)) return alert('갑옷 수치 범위 이상');
+        if (currentConfig?.category === 'ARTIFACT' && (validatedLevel < 4 || validatedLevel > 10)) return toast.error('아티팩트 범위 이상');
+        if (currentConfig?.category === 'WEAPON' && (validatedLevel < 7 || validatedLevel > 12)) return toast.error('무기 배율 범위 이상');
+        if (currentConfig?.category === 'ARMOR' && (validatedLevel < 0 || validatedLevel > 12)) return toast.error('갑옷 수치 범위 이상');
+
+        if (!user) return toast.error('로그인 후 이용할 수 있습니다.');
 
         try {
             setIsSubmitting(true);
             const { data: profile } = await supabase.from('profiles').select('minecraft_username').eq('id', user.id).single();
-            const sellerName = profile?.minecraft_username || (user?.email ? user.email.split('@')[0] : '알 수 없는 대원');
+            const sellerName = profile?.minecraft_username || (user.email ? user.email.split('@')[0] : '알 수 없는 대원');
 
             const { error } = await supabase.from('shop_items').insert({
                 item_id: selectedItemId,
@@ -79,25 +87,31 @@ export default function ShopPage() {
             });
 
             if (error) throw error;
-            alert('장터에 매물이 성공적으로 등록되었습니다! 💎');
+            toast.success('장터에 매물이 성공적으로 등록되었습니다! 💎');
             setIsModalOpen(false);
             loadData();
-        } catch (err: any) {
-            alert(`등록 실패: ${err.message}`);
+        } catch (err) {
+            toast.error(`등록 실패: ${err instanceof Error ? err.message : String(err)}`);
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const handleDeleteItem = async (id: number) => {
-        if (!window.confirm('정말로 이 매물을 회수하시겠습니까?')) return;
+        const approved = await confirmAction({
+            title: '⚠️ 매물을 회수할까요?',
+            description: '장터에서 즉시 내려가며 되돌릴 수 없습니다.',
+            confirmLabel: '회수하기',
+            destructive: true,
+        });
+        if (!approved) return;
         try {
             const { error } = await supabase.from('shop_items').delete().eq('id', id);
             if (error) throw error;
-            alert('매물이 정상적으로 회수되었습니다.');
+            toast.success('매물이 정상적으로 회수되었습니다.');
             loadData();
         } catch (err) {
-            alert('매물 회수에 실패했습니다.');
+            toast.error('매물 회수에 실패했습니다.');
         }
     };
 
@@ -134,21 +148,20 @@ export default function ShopPage() {
         });
 
     return (
-        <div className="min-h-screen bg-[#0f141c] text-slate-100 font-sans">
-            <main className="max-w-6xl mx-auto px-6 py-10 space-y-8">
+        <div>
+            <PageShell width="wide" className="space-y-8">
 
                 {/* 📢 상단 헤더 */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800 pb-6 gap-4">
-                    <div>
-                        <h1 className="text-2xl font-extrabold text-white flex items-center gap-2 tracking-tight">🛒 어비스 연동 장터</h1>
-                        <p className="text-xs text-slate-400 mt-1">대원들이 등록한 인게임 아이템 매물을 확인하고 거래하세요.</p>
-                    </div>
-                    {user ? (
-                        <button onClick={() => setIsModalOpen(true)} className="bg-amber-400 hover:bg-amber-500 text-slate-900 font-extrabold text-xs px-5 py-3 rounded-xl transition shadow-lg tracking-wide">📦 내 아이템 판매하기</button>
+                <PageHeading
+                    description="대원들이 등록한 인게임 아이템 매물을 확인하고 거래하세요."
+                    actions={user ? (
+                        <button type="button" onClick={() => setIsModalOpen(true)} className="bg-amber-400 hover:bg-amber-500 text-slate-900 font-extrabold text-xs px-5 py-3 rounded-xl transition shadow-lg tracking-wide focus-ring">📦 내 아이템 판매하기</button>
                     ) : (
                         <span className="text-xs text-slate-500 bg-slate-900/50 border border-slate-800 px-4 py-2 rounded-xl">로그인 후 이용 가능합니다.</span>
                     )}
-                </div>
+                >
+                    🛒 어비스 연동 장터
+                </PageHeading>
 
                 {/* 🔍 검색 / 정렬 컨트롤바 컴포넌트 */}
                 <ShopFilterBar
@@ -186,7 +199,7 @@ export default function ShopPage() {
                         isSubmitting={isSubmitting}
                     />
                 )}
-            </main>
+            </PageShell>
         </div>
     );
 }

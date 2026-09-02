@@ -1,23 +1,26 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
 // 💡 제공해주신 경로의 중앙 집중식 샵 컨피그 유틸 함수 사용
 import { getShopItemConfig } from '@/app/constants/shop';
+import { getBrowserSupabase } from '@/lib/supabase';
+import type { PostRow, ProfileRow, ShopItemRow } from '@/lib/db-types';
+import type { User } from '@supabase/supabase-js';
 
-const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+/** 마이페이지 목록에 필요한 최소 컬럼만 조회한다. */
+export type MyPostSummary = Pick<PostRow, 'id' | 'title' | 'created_at' | 'job'>;
+export type MyItemSummary = Pick<ShopItemRow, 'id' | 'item_id' | 'price' | 'created_at' | 'quantity'>;
+
+const supabase = getBrowserSupabase();
 
 export function useMyPageData() {
-    const [user, setUser] = useState<any>(null);
-    const [profileData, setProfileData] = useState<any>(null);
+    const [user, setUser] = useState<User | null>(null);
+    const [profileData, setProfileData] = useState<ProfileRow | null>(null);
     const [loading, setLoading] = useState(true);
 
     // 📂 내가 작성한 콘텐츠 데이터 상태
-    const [myPosts, setMyPosts] = useState<any[]>([]);
-    const [myItems, setMyItems] = useState<any[]>([]);
+    const [myPosts, setMyPosts] = useState<MyPostSummary[]>([]);
+    const [myItems, setMyItems] = useState<MyItemSummary[]>([]);
     const [contentLoading, setContentLoading] = useState(false);
 
     // 👤 Supabase profiles 테이블에서 인게임 마인크래프트 정보 조회
@@ -31,8 +34,8 @@ export function useMyPageData() {
 
             if (error) throw error;
             setProfileData(data);
-        } catch (err: any) {
-            console.error('프로필 로드 실패:', err.message);
+        } catch (err) {
+            console.error('프로필 로드 실패:', err instanceof Error ? err.message : err);
         } finally {
             setLoading(false);
         }

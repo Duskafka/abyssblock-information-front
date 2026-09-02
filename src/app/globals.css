@@ -1,8 +1,81 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ------------------------------------------------------------------
+   디자인 토큰
+
+   기존에는 팔레트가 185곳에 임의값(bg-[#0f141c] 등)으로 흩어져 있었고
+   @theme 블록에는 create-next-app 보일러플레이트만 남아 있었다.
+   실제로 쓰이는 색을 여기로 승격해 한 곳에서 관리한다.
+
+   어두운 서피스가 #0f141c / #111622 / #111722 / #121822 / #161d2a /
+   #1a2332 / #1c2637 / #1f293d 8종까지 늘어나 있어 4단계로 정리했다.
+------------------------------------------------------------------ */
+@theme {
+  --color-abyss-950: #0a0e14; /* 드롭다운 · 입력 배경 (가장 깊은 면) */
+  --color-abyss-900: #0f141c; /* 페이지 배경 */
+  --color-abyss-800: #161d2a; /* 카드 · 패널 */
+  --color-abyss-700: #1a2332; /* 카드 호버 · 한 단계 뜬 면 */
+
+  /* 시맨틱 별칭.
+     파괴적 동작이 red-*와 rose-* 두 갈래로 갈려 있어 rose로 통일한다. */
+  --color-accent: oklch(82.8% 0.189 84.429); /* = amber-400 */
+  --color-accent-strong: oklch(87.9% 0.169 91.605); /* = amber-300 */
+  --color-danger: oklch(64.5% 0.246 16.439); /* = rose-500 */
+  --color-success: oklch(76.5% 0.177 163.223); /* = emerald-400 */
+
+  /* 라틴은 Geist, 한글은 Noto Sans KR로 받는다.
+     Geist는 한글 글리프가 없어 이전에는 OS 폴백(맑은 고딕/애플 SD 고딕)으로
+     떨어졌고, 그래서 플랫폼마다 본문 모양이 달랐다. */
+  --font-sans: var(--font-geist-sans), var(--font-noto-kr), ui-sans-serif,
+    system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* 뱃지·라벨용 최소 크기.
+     이전에는 text-[8px]/[9px]/[10px]/[11px] 네 가지 임의값이 126곳에 흩어져
+     있었다. 한글은 라틴보다 자형이 조밀해 8~10px에서는 사실상 판독이 안 된다.
+     스케일 항목 하나로 합치고 바닥을 11px로 올린다. */
+  --text-2xs: 0.6875rem; /* 11px */
+  --text-2xs--line-height: 1rem;
+
+  /* 모달과 페이지 진입 페이드.
+     이전에는 정의 없이 클래스만 6곳에 쓰여 전부 무동작이었다. */
+  --animate-fade-in: fade-in 0.15s ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 픽셀 아트가 뭉개지지 않게 한다.
+   일부 파일이 존재하지 않는 맨 클래스 `pixelated`를 쓰고 있어 흐릿하게
+   렌더됐다. 유틸리티로 등록해 두 표기(`pixelated`와 임의값)를 모두 살린다. */
+@utility pixelated {
+  image-rendering: pixelated;
+}
+
+/* 키보드 포커스 표시.
+   기존에는 focus:outline-none이 32곳에 걸려 있는데 대체 링이 하나도 없어서
+   키보드 사용자가 자기 위치를 볼 수 없었다 (WCAG 2.4.7 실패).
+   :focus-visible만 잡으므로 마우스 클릭에는 링이 뜨지 않는다. */
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--color-amber-400);
+    outline-offset: 2px;
+  }
+}
+
+body {
+  background: var(--color-abyss-900);
+  color: var(--color-slate-100);
+  font-family: var(--font-sans);
 }
 
 /* 🌊 다크 모드 커스텀 스크롤바 스타일 */
@@ -12,7 +85,7 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #0f141c; /* 배경을 모달 내부와 같은 딥다크 톤으로 변경 */
+  background: var(--color-abyss-900);
   border-radius: 9999px;
 }
 
@@ -29,25 +102,5 @@
 /* Firefox 전용 지원 */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #242f41 #0f141c;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  scrollbar-color: #242f41 var(--color-abyss-900);
 }

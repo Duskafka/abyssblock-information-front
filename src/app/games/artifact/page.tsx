@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useId } from 'react';
 import Link from 'next/link';
+import PageShell from '@/components/ui/PageShell';
+import PixelImage from '@/components/ui/PixelImage';
 import {
     UPGRADE_TARGET_ARTIFACTS,
     SHARED_SUB_UPGRADE_TABLE,
@@ -29,6 +31,7 @@ export default function ArtifactUpgradeGame() {
     });
 
     // 1. 아티펙트 선택 상태 관리 (기본 시작 대상도 정렬 첫 번째인 '오아시스의 정수'로 세팅)
+    const targetRelicLabelId = useId();
     const [selectedArtifact, setSelectedArtifact] = useState<ArtifactConfig>(sortedArtifacts[0]);
     const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -204,36 +207,37 @@ export default function ArtifactUpgradeGame() {
     const curseData = getOptionRenderData('curse');
 
     return (
-        <div className="min-h-screen bg-[#0f141c] text-slate-100 font-sans">
-            <main className="max-w-3xl mx-auto px-6 py-10 space-y-6">
+        <div>
+            <PageShell width="narrow" className="space-y-6">
 
                 {/* 상단 헤더 및 커스텀 드롭다운 바 영역 */}
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-[#161d2a] border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-abyss-800 border border-slate-800 rounded-2xl p-5 shadow-xl">
                     <div>
                         <h1 className="text-lg font-black text-amber-400 flex items-center gap-2">
-                            심연의 고대 유물 제단
+                            아티펙트 강화 시뮬레이터
                         </h1>
-                        <p className="text-xs text-slate-400 mt-0.5">원하는 옵션을 조율하고 강화하는 인챈트 미니게임</p>
+                        <p className="text-sm text-slate-400 mt-0.5">원하는 옵션을 조율하고 강화하는 인챈트 미니게임</p>
                     </div>
 
                     {/* 커스텀 셀렉트 드롭다운 컴포넌트 */}
                     <div className="flex items-center gap-3 relative" ref={dropdownRef}>
-                        <label className="text-xs text-slate-400 font-medium whitespace-nowrap">대상 유물:</label>
+                        <span id={targetRelicLabelId} className="text-xs text-slate-400 font-medium whitespace-nowrap">대상 유물:</span>
 
                         <div className="relative w-48">
                             {/* 드롭다운 트리거 버튼 */}
                             <button
                                 type="button"
+                                aria-labelledby={targetRelicLabelId}
+                                aria-expanded={isDropdownOpen}
                                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                                className="w-full bg-[#0f141c] border border-slate-700 hover:border-amber-400 text-xs text-slate-200 rounded-xl px-3 py-2 flex items-center justify-between gap-2 transition focus:outline-none font-semibold text-left shadow-inner"
+                                className="w-full bg-abyss-900 border border-slate-700 hover:border-amber-400 text-xs text-slate-200 rounded-xl px-3 py-2 flex items-center justify-between gap-2 transition focus-ring font-semibold text-left shadow-inner"
                             >
                                 <div className="flex items-center gap-2 truncate">
-                                    <img
+                                    <PixelImage
                                         src={selectedArtifact.imageSrc}
                                         alt=""
                                         className="w-4 h-4 object-contain pixelated inline-block"
-                                        onError={(e) => { (e.target as HTMLImageElement).src = '🔮'; }}
-                                    />
+                                        onError={(e) => { (e.target as HTMLImageElement).src = '🔮'; }} width={16} height={16} />
                                     <span className="truncate">{selectedArtifact.koreanName}</span>
                                 </div>
                                 <svg
@@ -246,7 +250,7 @@ export default function ArtifactUpgradeGame() {
 
                             {/* 커스텀 정렬 리스트 순서대로 아이템 출력 */}
                             {isDropdownOpen && (
-                                <div className="absolute right-0 mt-2 w-full bg-[#161d2a] border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden py-1 max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-1 duration-150">
+                                <div className="absolute right-0 mt-2 w-full bg-abyss-800 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden py-1 max-h-60 overflow-y-auto custom-scrollbar animate-fade-in">
                                     {sortedArtifacts.map((artifact) => {
                                         const isSelected = artifact.id === selectedArtifact.id;
                                         return (
@@ -257,18 +261,17 @@ export default function ArtifactUpgradeGame() {
                                                 className={`w-full text-left px-3 py-2.5 text-xs flex items-center gap-2 transition font-medium ${
                                                     isSelected
                                                         ? 'bg-amber-400/10 text-amber-400 font-bold'
-                                                        : 'text-slate-300 hover:bg-[#0f141c] hover:text-slate-100'
+                                                        : 'text-slate-300 hover:bg-abyss-900 hover:text-slate-100'
                                                 }`}
                                             >
-                                                <img
+                                                <PixelImage
                                                     src={artifact.imageSrc}
                                                     alt=""
                                                     className="w-4 h-4 object-contain pixelated"
-                                                    onError={(e) => { (e.target as HTMLImageElement).src = '🔮'; }}
-                                                />
+                                                    onError={(e) => { (e.target as HTMLImageElement).src = '🔮'; }} width={16} height={16} />
                                                 <span className="flex-1 truncate">{artifact.koreanName}</span>
                                                 {isSelected && (
-                                                    <span className="text-amber-400 text-[10px]">●</span>
+                                                    <span className="text-amber-400 text-2xs">●</span>
                                                 )}
                                             </button>
                                         );
@@ -282,15 +285,14 @@ export default function ArtifactUpgradeGame() {
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                     {/* 왼쪽 파트 */}
                     <div className="md:col-span-3 space-y-4">
-                        <div className="bg-[#161d2a] border border-slate-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden flex flex-col items-center">
+                        <div className="bg-abyss-800 border border-slate-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden flex flex-col items-center">
 
-                            <div className="w-20 h-20 bg-[#0f141c] border border-slate-800 rounded-2xl flex items-center justify-center p-4 mt-2 mb-3 shadow-inner">
-                                <img
+                            <div className="w-20 h-20 bg-abyss-900 border border-slate-800 rounded-2xl flex items-center justify-center p-4 mt-2 mb-3 shadow-inner">
+                                <PixelImage
                                     src={selectedArtifact.imageSrc}
                                     alt={selectedArtifact.koreanName}
                                     className="w-full h-full object-contain pixelated"
-                                    onError={(e) => { (e.target as HTMLImageElement).src = '🔮'; }}
-                                />
+                                    onError={(e) => { (e.target as HTMLImageElement).src = '🔮'; }} width={32} height={32} />
                             </div>
 
                             <h2 className="text-base font-black text-slate-200 tracking-wide mb-5">
@@ -306,13 +308,13 @@ export default function ArtifactUpgradeGame() {
                                 ].map(({ type, data }) => (
                                     <div
                                         key={type}
-                                        className="bg-[#0f141c] p-4 rounded-xl border border-slate-800 shadow-inner flex items-center justify-between gap-4 group hover:border-slate-700/80 transition"
+                                        className="bg-abyss-900 p-4 rounded-xl border border-slate-800 shadow-inner flex items-center justify-between gap-4 group hover:border-slate-700/80 transition"
                                     >
                                         <div className="space-y-1 min-w-0 flex-1">
                                             <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
                                                 <span>{data.meta.icon}</span>
                                                 <span>{data.meta.name}</span>
-                                                <span className={`font-mono text-[11px] px-1.5 py-0.5 rounded ${data.meta.colorClass} bg-slate-900 border border-slate-800`}>
+                                                <span className={`font-mono text-2xs px-1.5 py-0.5 rounded ${data.meta.colorClass} bg-slate-900 border border-slate-800`}>
                                                     +{data.currentLevel}강 / {data.maxLevel}강
                                                 </span>
                                             </div>
@@ -321,12 +323,12 @@ export default function ArtifactUpgradeGame() {
                                                 {data.description}
                                             </div>
 
-                                            <div className="text-[10px] text-slate-500 font-mono">
+                                            <div className="text-2xs text-slate-500 font-mono">
                                                 다음 시도 ➡️ <span className="text-slate-400">{data.nextDescription}</span>
                                             </div>
                                         </div>
 
-                                        <button
+                                        <button type="button"
                                             onClick={() => handleUpgradeOption(type)}
                                             disabled={attemptsLeft === 0}
                                             className="bg-slate-800 hover:bg-amber-400 hover:text-slate-950 disabled:opacity-10 text-slate-200 font-bold text-xs px-3.5 py-2.5 rounded-xl border border-slate-700/50 transition shadow-md whitespace-nowrap"
@@ -339,17 +341,17 @@ export default function ArtifactUpgradeGame() {
                         </div>
 
                         {/* 제단 상태 스택 */}
-                        <div className="bg-[#161d2a] border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+                        <div className="bg-abyss-800 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
                             <div className="grid grid-cols-2 gap-3 text-center">
-                                <div className="bg-[#0f141c] border border-slate-800 p-3 rounded-xl">
-                                    <span className="text-[11px] text-slate-400 block mb-0.5">다음 시도 성공 확률</span>
+                                <div className="bg-abyss-900 border border-slate-800 p-3 rounded-xl">
+                                    <span className="text-2xs text-slate-400 block mb-0.5">다음 시도 성공 확률</span>
                                     <span className={`text-xl font-black font-mono ${successChance >= 70 ? 'text-emerald-400' : successChance <= 30 ? 'text-rose-400' : 'text-amber-400'}`}>
                                         {successChance}%
                                     </span>
                                 </div>
 
-                                <div className="bg-[#0f141c] border border-slate-800 p-3 rounded-xl">
-                                    <span className="text-[11px] text-slate-400 block mb-0.5">남은 총 제단 횟수</span>
+                                <div className="bg-abyss-900 border border-slate-800 p-3 rounded-xl">
+                                    <span className="text-2xs text-slate-400 block mb-0.5">남은 총 제단 횟수</span>
                                     <span className="text-xl font-black font-mono text-slate-200">
                                         {attemptsLeft} <span className="text-xs text-slate-500 font-normal">/ {ARTIFACT_UPGRADE_CHANCE.MAX_ATTEMPTS}</span>
                                     </span>
@@ -364,7 +366,7 @@ export default function ArtifactUpgradeGame() {
                                 {statusMessage.text}
                             </div>
 
-                            <button
+                            <button type="button"
                                 onClick={() => resetAltar()}
                                 className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs py-3 rounded-xl transition border border-slate-700/30"
                             >
@@ -374,14 +376,14 @@ export default function ArtifactUpgradeGame() {
                     </div>
 
                     {/* 오른쪽 파트 */}
-                    <div className="md:col-span-2 bg-[#161d2a] border border-slate-800 rounded-2xl p-5 shadow-2xl flex flex-col h-[540px]">
+                    <div className="md:col-span-2 bg-abyss-800 border border-slate-800 rounded-2xl p-5 shadow-2xl flex flex-col h-[540px]">
                         <div className="border-b border-slate-800 pb-2.5 mb-3">
                             <h3 className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
                                 <span>📜</span> 인챈트 제단 주문 흔적 로그
                             </h3>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto space-y-2 text-[11px] font-mono pr-1 scrollbar-none">
+                        <div className="flex-1 overflow-y-auto space-y-2 text-2xs font-mono pr-1 scrollbar-none">
                             {gameHistory.length === 0 ? (
                                 <div className="h-full flex items-center justify-center text-slate-500 text-center py-10">
                                     상단의 인챈트 슬롯 [강화 시도] 버튼을 눌러 스크롤을 새겨보세요.
@@ -392,7 +394,7 @@ export default function ArtifactUpgradeGame() {
                                     return (
                                         <div
                                             key={idx}
-                                            className={`p-2.5 rounded-lg border leading-relaxed bg-[#0f141c] ${
+                                            className={`p-2.5 rounded-lg border leading-relaxed bg-abyss-900 ${
                                                 isLogSuccess ? 'border-emerald-500/20 text-emerald-400/90' : 'border-rose-500/20 text-rose-400/90'
                                             }`}
                                         >
@@ -404,7 +406,7 @@ export default function ArtifactUpgradeGame() {
                         </div>
                     </div>
                 </div>
-            </main>
+            </PageShell>
         </div>
     );
 }

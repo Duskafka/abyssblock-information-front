@@ -2,13 +2,20 @@
 
 import { useState } from 'react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import type { CropPriceRow, CropPriceSlot } from '@/lib/db-types';
+
+/** 시세 테이블에서 그래프로 그리는 작물 컬럼 */
+type CropKey = Extract<keyof CropPriceRow, 'wheat' | 'beetroot' | 'carrot' | 'potato' | 'melon' | 'pumpkin'>;
+
+/** 실선(작물명)과 점선(작물명_dash) 키가 함께 들어가는 recharts 입력 한 줄 */
+type ChartRow = { name: string } & Record<string, string | number | null>;
 
 interface CropLineChartProps {
-    timeline: any[];
+    timeline: CropPriceSlot[];
 }
 
 // ⚙️ 색상, 순서, 다국어 네임 매핑 테이블
-const cropConfigs: { [key: string]: { color: string; order: number; key: string } } = {
+const cropConfigs: { [key: string]: { color: string; order: number; key: CropKey } } = {
     '황금 밀': { color: '#fbbf24', order: 1, key: 'wheat' },
     '황금 비트': { color: '#ef4444', order: 2, key: 'beetroot' },
     '황금 당근': { color: '#f97316', order: 3, key: 'carrot' },
@@ -33,7 +40,7 @@ export default function CropLineChart({ timeline }: CropLineChartProps) {
 
     // 📈 [알고리즘 대수술]: 실선 구간과 점선 구간의 데이터를 완벽하게 격리
     const chartData = timeline.map((slot) => {
-        const result: any = {
+        const result: ChartRow = {
             name: slot.display_time,
         };
         Object.keys(cropConfigs).forEach((cropName) => {
@@ -53,8 +60,9 @@ export default function CropLineChart({ timeline }: CropLineChartProps) {
             const currentVal = timeline[i][cropKey];
             if (currentVal !== null && currentVal !== undefined) {
                 // 직전 실선 끝점과 현재 실선 시작점 사이에 공백(null)이 존재할 때만 작동
-                if (lastValidIdx !== -1 && i - lastValidIdx > 1) {
-                    const startVal = timeline[lastValidIdx][cropKey];
+                const startVal = lastValidIdx === -1 ? null : timeline[lastValidIdx][cropKey];
+
+                if (startVal !== null && i - lastValidIdx > 1) {
                     const endVal = currentVal;
                     const gapSize = i - lastValidIdx;
 
@@ -70,9 +78,9 @@ export default function CropLineChart({ timeline }: CropLineChartProps) {
     });
 
     return (
-        <div className="bg-[#161d2a] border border-slate-800 rounded-xl p-6 shadow-2xl space-y-4">
+        <div className="bg-abyss-800 border border-slate-800 rounded-xl p-6 shadow-2xl space-y-4">
             {/* 작물 필터링 체크박스 바 */}
-            <div className="flex flex-wrap gap-3 p-3 bg-[#111722] rounded-xl border border-slate-800/80">
+            <div className="flex flex-wrap gap-3 p-3 bg-abyss-950 rounded-xl border border-slate-800/80">
                 {Object.keys(cropConfigs).map((cropName) => (
                     <label
                         key={cropName}

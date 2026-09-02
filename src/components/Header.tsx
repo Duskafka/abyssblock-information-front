@@ -1,17 +1,21 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
+import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { SHELL_WIDTH } from '@/components/ui/PageShell';
+import Modal from '@/components/ui/Modal';
+import useScrollLock from '@/components/ui/useScrollLock';
 
 // 🧭 중앙 관리형 나침반 유틸 함수 임포트
 import { getCompassSrc } from '@/app/constants/compass';
+import PixelImage from '@/components/ui/PixelImage';
+import { useToast } from '@/components/ui/Toast';
+import { getBrowserSupabase } from '@/lib/supabase';
+import type { ProfileRow } from '@/lib/db-types';
+import type { User } from '@supabase/supabase-js';
 
-const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabase = getBrowserSupabase();
 
 // 📱 모바일 패널에서 반복 사용하는 행 스타일 (활성/비활성)
 const mobileRowBase = 'flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition';
@@ -20,22 +24,36 @@ const mobileRowActive = 'bg-amber-400/10 text-amber-400 font-bold';
 const mobileRowIdle = 'text-slate-300 hover:bg-slate-800/60 hover:text-white';
 
 export default function Header() {
+    const toast = useToast();
     const pathname = usePathname();
-    const [user, setUser] = useState<any>(null);
-    const [profile, setProfile] = useState<any>(null);
+    const [user, setUser] = useState<User | null>(null);
+    const [profile, setProfile] = useState<Pick<ProfileRow, 'compass_rank' | 'minecraft_username'> | null>(null);
 
     // 💡 팝업(모달) 상태 관리
     const [isModalOpen, setIsModalOpen] = useState(false);
+    // label htmlFor <-> input id 연결용 (이전에는 짝이 없어 라벨이 읽히지 않았다)
+    const loginEmailId = useId();
+    const loginPasswordId = useId();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // 💡 드롭다운 수동 제어용 상태 관리 (데스크톱은 호버, 모바일 패널은 클릭 아코디언으로 공유)
+    // 💡 데스크톱 드롭다운(호버/클릭) 상태
     const [isCommunityDropdownOpen, setIsCommunityDropdownOpen] = useState(false);
     const [isGameDropdownOpen, setIsGameDropdownOpen] = useState(false); // 🕹️ 미니게임 드롭다운 상태 추가
 
     // 📱 좁은 화면용 햄버거 패널 상태
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+    // 📱 모바일 아코디언은 데스크톱 드롭다운과 상태를 따로 갖는다.
+    //    예전에는 하나를 공유해서, 데스크톱에서 드롭다운을 열어둔 채 창을 줄이면
+    //    모바일 아코디언이 미리 펼쳐진 상태로 나타났다.
+    const [isMobileGameOpen, setIsMobileGameOpen] = useState(false);
+    const [isMobileCommunityOpen, setIsMobileCommunityOpen] = useState(false);
+
+    // 📏 패널 최대 높이를 헤더의 실제 높이에서 계산하기 위한 참조.
+    //    예전에는 calc(100vh-5rem)과 calc(100vh-7rem) 두 추정치가 서로 달랐다.
+    const headerRef = useRef<HTMLElement>(null);
 
     // 📢 커뮤니티 카테고리 활성화 판별 로직들
     const isNoticeActive = pathname.startsWith('/notice');
@@ -88,11 +106,42 @@ export default function Header() {
         setIsMobileMenuOpen(false);
         setIsGameDropdownOpen(false);
         setIsCommunityDropdownOpen(false);
+        setIsMobileGameOpen(false);
+        setIsMobileCommunityOpen(false);
     }, [pathname]);
+
+    // 📏 헤더의 실제 높이를 --header-h로 노출한다. 패널은 이 값 하나만 보고
+    //    자기 최대 높이를 정하므로 헤더 높이가 바뀌어도 추정치가 어긋나지 않는다.
+    useEffect(() => {
+        const el = headerRef.current;
+        if (!el) return;
+
+        const update = () => el.style.setProperty('--header-h', `${el.offsetHeight}px`);
+        update();
+
+        const observer = new ResizeObserver(update);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
+
+    // 🖥️ 데스크톱 폭으로 넓어지면 모바일 패널을 닫는다.
+    //    패널이 lg:hidden으로 사라지기만 하면 body 스크롤 잠금이 그대로 남는다.
+    useEffect(() => {
+        const desktop = window.matchMedia('(min-width: 1024px)');
+        const handleChange = (event: MediaQueryListEvent) => {
+            if (event.matches) setIsMobileMenuOpen(false);
+        };
+        desktop.addEventListener('change', handleChange);
+        return () => desktop.removeEventListener('change', handleChange);
+    }, []);
+
+    // 📜 패널이 열려 있는 동안 뒤 페이지 스크롤 잠금
+    useScrollLock(isMobileMenuOpen);
 
     // ⌨️ Escape 키로 모바일 패널 닫기
     useEffect(() => {
         if (!isMobileMenuOpen) return;
+
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'Escape') setIsMobileMenuOpen(false);
         };
@@ -102,7 +151,7 @@ export default function Header() {
 
     const handleEmailLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!email || !password) return alert('이메일과 비밀번호를 모두 입력해 주세요.');
+        if (!email || !password) return toast.error('이메일과 비밀번호를 모두 입력해 주세요.');
 
         setLoading(true);
         const { error } = await supabase.auth.signInWithPassword({
@@ -112,7 +161,7 @@ export default function Header() {
 
         setLoading(false);
         if (error) {
-            alert('로그인 실패: 이메일 또는 비밀번호를 확인해 주세요.\n(' + error.message + ')');
+            toast.error('로그인 실패: 이메일 또는 비밀번호를 확인해 주세요.\n(' + error.message + ')');
         } else {
             setIsModalOpen(false);
             setEmail('');
@@ -122,7 +171,7 @@ export default function Header() {
 
     const handleLogout = async () => {
         const { error } = await supabase.auth.signOut();
-        if (error) alert('로그아웃 실패: ' + error.message);
+        if (error) toast.error('로그아웃 실패: ' + error.message);
         else window.location.reload();
     };
 
@@ -138,17 +187,19 @@ export default function Header() {
 
     return (
         <>
-            <header className="border-b border-slate-800 bg-[#161d2a]/90 px-4 md:px-6 py-3 md:py-4 sticky top-0 z-40 backdrop-blur">
-                <div className="max-w-6xl mx-auto select-none">
+            <header
+                ref={headerRef}
+                className="relative border-b border-slate-800 bg-abyss-800/90 px-4 sm:px-6 py-3 md:py-4 sticky top-0 z-40 backdrop-blur"
+            >
+                <div className={`${SHELL_WIDTH.wide} mx-auto select-none`}>
                     <div className="flex items-center justify-between gap-3">
 
                         {/* 로고 영역 */}
                         <Link href="/" className="flex items-center gap-2 text-lg md:text-xl font-bold text-amber-400 tracking-wider group shrink-0 whitespace-nowrap">
-                            <img
+                            <PixelImage
                                 src="/icon.png"
                                 alt="서버 아이콘"
-                                className="w-6 h-6 object-contain [image-rendering:pixelated] transition-transform group-hover:scale-105"
-                            />
+                                className="w-6 h-6 object-contain pixelated transition-transform group-hover:scale-105" width={24} height={24} />
                             <span className="flex flex-col md:flex-row md:items-center leading-none">
                                 <span>Abyssblock</span>
                                 <span className="md:ml-1.5 text-slate-200">Info</span>
@@ -177,7 +228,7 @@ export default function Header() {
                                         aria-haspopup="true"
                                         aria-expanded={isGameDropdownOpen}
                                         onClick={() => setIsGameDropdownOpen((prev) => !prev)}
-                                        className={`flex items-center gap-1 transition focus:outline-none ${
+                                        className={`flex items-center gap-1 transition focus-ring ${
                                             isGameActive ? 'text-amber-400 font-bold' : 'text-slate-400 group-hover:text-slate-200'
                                         }`}
                                     >
@@ -188,7 +239,7 @@ export default function Header() {
                                     </button>
 
                                     {/* 🎁 미니게임 서브메뉴 박스 */}
-                                    <div className={`absolute left-0 mt-2 w-52 bg-[#161d2a] border border-slate-800 rounded-xl shadow-2xl p-1.5 transition-all duration-200 origin-top z-50 ${
+                                    <div className={`absolute left-0 mt-2 w-52 bg-abyss-800 border border-slate-800 rounded-xl shadow-2xl p-1.5 transition-all duration-200 origin-top z-50 ${
                                         isGameDropdownOpen
                                             ? 'opacity-100 scale-100 visible translate-y-0'
                                             : 'opacity-0 scale-95 invisible -translate-y-2 pointer-events-none'
@@ -200,8 +251,8 @@ export default function Header() {
                                                 isArtifactGameActive ? 'bg-amber-400/10 text-amber-400 font-bold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
                                             }`}
                                         >
-                                            <span className="flex items-center gap-1.5">🔮 유물 인챈트 제단</span>
-                                            <span className="text-[9px] bg-amber-400/20 text-amber-400 px-1 py-0.5 rounded font-bold">HOT</span>
+                                            <span className="flex items-center gap-1.5">🔮 아티펙트 강화 시뮬레이터</span>
+                                            <span className="text-2xs bg-amber-400/20 text-amber-400 px-1 py-0.5 rounded font-bold">HOT</span>
                                         </Link>
 
                                         {/* 🛡️ 새로 제작 완료된 데미지 시뮬레이터 추가 슬롯 */}
@@ -228,7 +279,7 @@ export default function Header() {
                                         aria-haspopup="true"
                                         aria-expanded={isCommunityDropdownOpen}
                                         onClick={() => setIsCommunityDropdownOpen((prev) => !prev)}
-                                        className={`flex items-center gap-1 transition focus:outline-none ${
+                                        className={`flex items-center gap-1 transition focus-ring ${
                                             isCommunityActive ? 'text-amber-400 font-bold' : 'text-slate-400 group-hover:text-slate-200'
                                         }`}
                                     >
@@ -239,7 +290,7 @@ export default function Header() {
                                     </button>
 
                                     {/* 드롭다운 서브메뉴 박스 */}
-                                    <div className={`absolute left-0 mt-2 w-44 bg-[#161d2a] border border-slate-800 rounded-xl shadow-2xl p-1.5 transition-all duration-200 origin-top z-50 ${
+                                    <div className={`absolute left-0 mt-2 w-44 bg-abyss-800 border border-slate-800 rounded-xl shadow-2xl p-1.5 transition-all duration-200 origin-top z-50 ${
                                         isCommunityDropdownOpen
                                             ? 'opacity-100 scale-100 visible translate-y-0'
                                             : 'opacity-0 scale-95 invisible -translate-y-2 pointer-events-none'
@@ -298,12 +349,11 @@ export default function Header() {
                                     </Link>
 
                                     <div className="flex flex-nowrap items-center gap-2 bg-slate-900/60 border border-slate-800 px-2.5 py-1 rounded-xl shrink-0 whitespace-nowrap">
-                                        <img
+                                        <PixelImage
                                             src={compassSrc}
                                             alt={`${rankLabel} 랭크`}
                                             className="w-4 h-4 object-contain shrink-0"
-                                            title={`등급: ${rankLabel}`}
-                                        />
+                                            title={`등급: ${rankLabel}`} width={16} height={16} />
                                         <span className="text-slate-400 text-xs font-medium">
                                             {/* 긴 마인크래프트 닉네임이 헤더를 다시 밀어내지 않도록 잘라낸다 */}
                                             <span className="text-slate-200 font-semibold inline-block max-w-[7rem] truncate align-bottom">{displayName}</span>님
@@ -313,7 +363,7 @@ export default function Header() {
                                     <button
                                         type="button"
                                         onClick={handleLogout}
-                                        className="text-[11px] text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-700 px-2.5 py-1 rounded-lg transition shrink-0 whitespace-nowrap"
+                                        className="text-2xs text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-700 px-2.5 py-1 rounded-lg transition shrink-0 whitespace-nowrap"
                                     >
                                         로그아웃
                                     </button>
@@ -332,17 +382,16 @@ export default function Header() {
                         {/* 📱 좁은 화면(lg 미만) 상단 클러스터: 로그인 상태 + 햄버거 */}
                         <div className="flex lg:hidden items-center gap-2 shrink-0">
                             {user ? (
-                                <img
+                                <PixelImage
                                     src={compassSrc}
                                     alt={`${rankLabel} 랭크`}
                                     className="w-5 h-5 object-contain shrink-0"
-                                    title={`등급: ${rankLabel}`}
-                                />
+                                    title={`등급: ${rankLabel}`} width={20} height={20} />
                             ) : (
                                 <button
                                     type="button"
                                     onClick={openLoginModal}
-                                    className="bg-amber-400/10 hover:bg-amber-400 text-amber-400 hover:text-slate-900 border border-amber-400/20 px-2.5 py-1.5 rounded-xl font-bold text-[11px] transition shrink-0 whitespace-nowrap"
+                                    className="bg-amber-400/10 hover:bg-amber-400 text-amber-400 hover:text-slate-900 border border-amber-400/20 px-2.5 py-1.5 rounded-xl font-bold text-2xs transition shrink-0 whitespace-nowrap"
                                 >
                                     로그인
                                 </button>
@@ -354,7 +403,7 @@ export default function Header() {
                                 aria-label={isMobileMenuOpen ? '메뉴 닫기' : '메뉴 열기'}
                                 aria-expanded={isMobileMenuOpen}
                                 aria-controls="mobile-nav"
-                                className="p-2 -mr-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/60 transition focus:outline-none"
+                                className="p-2 -mr-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/60 transition focus-ring"
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     {isMobileMenuOpen ? (
@@ -366,16 +415,34 @@ export default function Header() {
                             </button>
                         </div>
                     </div>
+                </div>
 
-                    {/* 📱 햄버거로 펼쳐지는 모바일 네비게이션 패널 */}
+                {/* 📱 패널 뒤를 덮는 배경. 클릭하면 닫힌다.
+                    키보드 사용자는 Escape를 쓰므로 여기엔 포커스를 주지 않는다.
+                    헤더가 backdrop-blur를 갖고 있어 fixed 자식의 기준 박스가 헤더가 되므로
+                    viewport 전체를 덮으려면 absolute + 100dvh를 쓴다. */}
+                {isMobileMenuOpen && (
                     <div
-                        id="mobile-nav"
-                        className={`lg:hidden overflow-hidden transition-all duration-300 ease-out ${
-                            isMobileMenuOpen ? 'max-h-[calc(100vh-5rem)] opacity-100' : 'max-h-0 opacity-0'
-                        }`}
-                    >
-                        {/* 헤더의 좌우 패딩을 상쇄해 구분선을 화면 가장자리까지 늘린다 */}
-                        <div className="mt-3 -mx-4 md:-mx-6 px-4 md:px-6 pt-3 pb-1 border-t border-slate-800 max-h-[calc(100vh-7rem)] overflow-y-auto custom-scrollbar">
+                        className="lg:hidden absolute inset-x-0 top-full h-[100dvh] bg-black/40"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        aria-hidden="true"
+                    />
+                )}
+
+                {/* 📱 햄버거로 펼쳐지는 모바일 네비게이션 패널.
+                    sticky 바 안에 있으면 펼칠 때 바 자체가 커지므로 top-full 오버레이로 띄운다.
+                    높이 애니메이션은 매직넘버 max-h 대신 grid-template-rows로 처리해
+                    콘텐츠가 짧든 길든 튀지 않는다. */}
+                <div
+                    id="mobile-nav"
+                    inert={!isMobileMenuOpen}
+                    className={`lg:hidden absolute inset-x-0 top-full grid transition-[grid-template-rows,opacity] duration-300 ease-out ${
+                        isMobileMenuOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                    }`}
+                >
+                    <div className="overflow-hidden min-h-0">
+                        <div className="bg-abyss-800 border-b border-slate-800 shadow-2xl px-4 sm:px-6 pt-3 pb-3 max-h-[calc(100dvh-var(--header-h,4rem))] overflow-y-auto custom-scrollbar">
+                            <div className={`${SHELL_WIDTH.wide} mx-auto`}>
                             <Link
                                 href="/"
                                 className={`${mobileRowBase} ${pathname === '/' ? mobileRowActive : mobileRowIdle}`}
@@ -393,23 +460,28 @@ export default function Header() {
                             {/* 🕹️ 미니게임 아코디언 */}
                             <button
                                 type="button"
-                                aria-expanded={isGameDropdownOpen}
-                                onClick={() => setIsGameDropdownOpen((prev) => !prev)}
+                                aria-expanded={isMobileGameOpen}
+                                onClick={() => setIsMobileGameOpen((prev) => !prev)}
                                 className={`w-full ${mobileRowBase} ${isGameActive ? mobileRowActive : mobileRowIdle}`}
                             >
                                 <span>🕹️ 미니게임</span>
-                                <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${isGameDropdownOpen ? 'rotate-180 text-amber-400' : 'text-slate-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${isMobileGameOpen ? 'rotate-180 text-amber-400' : 'text-slate-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
                                 </svg>
                             </button>
 
-                            <div className={`overflow-hidden transition-all duration-200 ${isGameDropdownOpen ? 'max-h-40' : 'max-h-0'}`}>
+                            {/* 예전에는 max-h-40 매직넘버라 항목이 늘면 잘렸다. */}
+                            <div
+                                inert={!isMobileGameOpen}
+                                className={`grid transition-[grid-template-rows] duration-200 ease-out ${isMobileGameOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+                            >
+                                <div className="overflow-hidden min-h-0">
                                 <Link
                                     href="/games/artifact"
                                     className={`${mobileSubBase} ${isArtifactGameActive ? mobileRowActive : mobileRowIdle}`}
                                 >
-                                    <span>🔮 유물 인챈트 제단</span>
-                                    <span className="text-[9px] bg-amber-400/20 text-amber-400 px-1 py-0.5 rounded font-bold shrink-0">HOT</span>
+                                    <span>🔮 아티펙트 강화 시뮬레이터</span>
+                                    <span className="text-2xs bg-amber-400/20 text-amber-400 px-1 py-0.5 rounded font-bold shrink-0">HOT</span>
                                 </Link>
                                 <Link
                                     href="/games/calculator"
@@ -417,22 +489,27 @@ export default function Header() {
                                 >
                                     🛡️ 데미지 감산 시뮬레이터
                                 </Link>
+                                </div>
                             </div>
 
                             {/* 💬 커뮤니티 아코디언 */}
                             <button
                                 type="button"
-                                aria-expanded={isCommunityDropdownOpen}
-                                onClick={() => setIsCommunityDropdownOpen((prev) => !prev)}
+                                aria-expanded={isMobileCommunityOpen}
+                                onClick={() => setIsMobileCommunityOpen((prev) => !prev)}
                                 className={`w-full ${mobileRowBase} ${isCommunityActive ? mobileRowActive : mobileRowIdle}`}
                             >
                                 <span>💬 커뮤니티</span>
-                                <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${isCommunityDropdownOpen ? 'rotate-180 text-amber-400' : 'text-slate-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <svg className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${isMobileCommunityOpen ? 'rotate-180 text-amber-400' : 'text-slate-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
                                 </svg>
                             </button>
 
-                            <div className={`overflow-hidden transition-all duration-200 ${isCommunityDropdownOpen ? 'max-h-48' : 'max-h-0'}`}>
+                            <div
+                                inert={!isMobileCommunityOpen}
+                                className={`grid transition-[grid-template-rows] duration-200 ease-out ${isMobileCommunityOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+                            >
+                                <div className="overflow-hidden min-h-0">
                                 <Link
                                     href="/notice"
                                     className={`${mobileSubBase} ${isNoticeActive ? mobileRowActive : mobileRowIdle}`}
@@ -455,6 +532,7 @@ export default function Header() {
                                 >
                                     🛒 어비스 연동 장터
                                 </Link>
+                                </div>
                             </div>
 
                             {/* 👤 인증 영역 */}
@@ -462,12 +540,11 @@ export default function Header() {
                                 {user ? (
                                     <>
                                         <div className="flex items-center gap-2 px-3 pb-2 min-w-0">
-                                            <img
+                                            <PixelImage
                                                 src={compassSrc}
                                                 alt={`${rankLabel} 랭크`}
                                                 className="w-4 h-4 object-contain shrink-0"
-                                                title={`등급: ${rankLabel}`}
-                                            />
+                                                title={`등급: ${rankLabel}`} width={16} height={16} />
                                             <span className="text-slate-400 text-xs font-medium truncate">
                                                 <span className="text-slate-200 font-semibold">{displayName}</span>님
                                             </span>
@@ -503,63 +580,63 @@ export default function Header() {
                                     </button>
                                 )}
                             </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </header>
 
             {/* 로그인 팝업 (모달) 레이어 */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div className="absolute inset-0" onClick={() => setIsModalOpen(false)} />
-                    <div className="relative w-full max-w-sm p-6 bg-[#161d2a] border border-slate-800 rounded-2xl shadow-2xl z-10 text-slate-200">
-                        <div className="mb-5 text-center">
-                            <h3 className="text-lg font-bold text-amber-400 tracking-wide">로그인</h3>
-                            <p className="text-xs text-slate-400 mt-1">인게임에서 생성한 계정 정보를 입력해 주세요.</p>
-                        </div>
-                        <form onSubmit={handleEmailLogin} className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-400 mb-1">이메일</label>
-                                <input
-                                    type="email"
-                                    placeholder="your-email@gmail.com"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-400 transition"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-400 mb-1">비밀번호</label>
-                                <input
-                                    type="password"
-                                    placeholder="••••••••"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-400 transition"
-                                    required
-                                />
-                            </div>
-                            <div className="flex gap-2 pt-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsModalOpen(false)}
-                                    className="w-1/2 border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-slate-200 py-2 rounded-xl font-medium text-xs transition"
-                                >
-                                    취소
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="w-1/2 bg-amber-400 text-slate-900 hover:bg-amber-300 py-2 rounded-xl font-bold text-xs transition disabled:opacity-50"
-                                >
-                                    {loading ? '로그인 중..' : '로그인'}
-                                </button>
-                            </div>
-                        </form>
+            <Modal
+                open={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                title="🔑 로그인"
+                size="sm"
+            >
+                <p className="text-sm text-slate-400 mb-5">인게임에서 생성한 계정 정보를 입력해 주세요.</p>
+                <form onSubmit={handleEmailLogin} className="space-y-4">
+                    <div>
+                        <label htmlFor={loginEmailId} className="block text-sm font-semibold text-slate-400 mb-1">이메일</label>
+                        <input
+                            id={loginEmailId}
+                            type="email"
+                            placeholder="your-email@gmail.com"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus-ring focus:border-amber-400 transition"
+                            required
+                        />
                     </div>
-                </div>
-            )}
+                    <div>
+                        <label htmlFor={loginPasswordId} className="block text-sm font-semibold text-slate-400 mb-1">비밀번호</label>
+                        <input
+                            id={loginPasswordId}
+                            type="password"
+                            placeholder="••••••••"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus-ring focus:border-amber-400 transition"
+                            required
+                        />
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                        <button
+                            type="button"
+                            onClick={() => setIsModalOpen(false)}
+                            className="w-1/2 border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-slate-200 py-2 rounded-xl font-medium text-xs transition focus-ring"
+                        >
+                            취소
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-1/2 bg-amber-400 text-slate-900 hover:bg-amber-300 py-2 rounded-xl font-bold text-xs transition disabled:opacity-50 focus-ring"
+                        >
+                            {loading ? '로그인 중..' : '로그인'}
+                        </button>
+                    </div>
+                </form>
+            </Modal>
         </>
     );
 }

@@ -2,11 +2,32 @@ import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
 import Link from 'next/link';
+import PageShell from '@/components/ui/PageShell';
+import PageHeading from '@/components/ui/PageHeading';
+
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: '공지사항',
+    description: 'Abyssblock Information 패치 노트와 운영 공지를 확인하세요.',
+    openGraph: {
+        title: '공지사항',
+        description: 'Abyssblock Information 패치 노트와 운영 공지를 확인하세요.',
+    },
+};
+
+/** 마크다운 front matter에서 뽑아 목록에 쓰는 값 */
+interface NoticeSummary {
+    slug: string;
+    title: string;
+    date: string;
+    description: string;
+}
 
 export default function NoticeListPage() {
     const postsDirectory = path.join(process.cwd(), 'src/content/notice');
 
-    let posts: any[] = [];
+    let posts: NoticeSummary[] = [];
 
     // 파일 읽기 실패 방어 로직 포함
     if (fs.existsSync(postsDirectory)) {
@@ -30,21 +51,20 @@ export default function NoticeListPage() {
     }
 
     return (
-        // 💡 [배경 튜닝] min-h-screen과 기존 전체 테마 배경색인 bg-[#0f141c]를 명확하게 주입합니다.
-        <div className="min-h-screen bg-[#0f141c] text-slate-200 select-none">
-            <main className="max-w-4xl mx-auto py-12 px-6 md:px-8 animate-fade-in">
+        <div className="text-slate-200">
+            <PageShell className="animate-fade-in">
 
                 {/* 📢 상단 헤더 타이틀 영역 (시세 현황판 타이틀 스타일 계승) */}
-                <div className="flex items-center gap-3 mb-10 border-b border-slate-800/60 pb-5">
-                    <span className="text-2xl">📢</span>
-                    <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-wide">
-                        공지사항 <span className="text-amber-400 font-medium text-xs md:text-sm ml-2">Abyssblock Information Patch & News</span>
-                    </h1>
-                </div>
+                <PageHeading
+                    className="mb-10"
+                    description="Abyssblock Information Patch & News"
+                >
+                    📢 공지사항
+                </PageHeading>
 
                 {/* 게시글 리스트 래퍼 */}
                 {posts.length === 0 ? (
-                    <div className="text-center py-20 bg-[#161d2a]/50 rounded-2xl border border-slate-800/80 text-slate-500 text-sm backdrop-blur">
+                    <div className="text-center py-20 bg-abyss-800/50 rounded-2xl border border-slate-800/80 text-slate-500 text-sm backdrop-blur">
                         등록된 공지사항이 아직 없습니다.
                     </div>
                 ) : (
@@ -54,7 +74,7 @@ export default function NoticeListPage() {
                                 href={`/notice/${post.slug}`}
                                 key={post.slug}
                                 // 💡 [카드 디자인 리뉴얼] 배경색 밀도와 그라데이션, 호버링 효과 극대화
-                                className="group block p-6 bg-[#161d2a]/70 hover:bg-[#1c2637]/90 rounded-2xl border border-slate-800/80 hover:border-amber-500/40 transition-all duration-300 shadow-lg hover:shadow-amber-500/5 translate-y-0 hover:-translate-y-0.5"
+                                className="group block p-6 bg-abyss-800/70 hover:bg-abyss-700/90 rounded-2xl border border-slate-800/80 hover:border-amber-500/40 transition-all duration-300 shadow-lg hover:shadow-amber-500/5 translate-y-0 hover:-translate-y-0.5"
                             >
                                 <div className="flex justify-between items-start gap-4">
                                     <div className="space-y-2">
@@ -70,14 +90,14 @@ export default function NoticeListPage() {
 
                                     {/* 📅 날짜 배지 */}
                                     {post.date && (
-                                        <span className="shrink-0 text-[11px] md:text-xs font-mono px-2.5 py-1 bg-slate-950/60 text-slate-400 border border-slate-800/60 rounded-lg">
+                                        <span className="shrink-0 text-2xs md:text-xs font-mono px-2.5 py-1 bg-slate-950/60 text-slate-400 border border-slate-800/60 rounded-lg">
                                             {post.date}
                                         </span>
                                     )}
                                 </div>
 
                                 {/* 하단 화살표 힌트 */}
-                                <div className="mt-4 flex justify-end items-center gap-1 text-[11px] font-semibold text-slate-500 group-hover:text-amber-500/80 transition-colors">
+                                <div className="mt-4 flex justify-end items-center gap-1 text-2xs font-semibold text-slate-500 group-hover:text-amber-500/80 transition-colors">
                                     <span>자세히 보기</span>
                                     <span className="transform group-hover:translate-x-0.5 transition-transform">→</span>
                                 </div>
@@ -85,7 +105,7 @@ export default function NoticeListPage() {
                         ))}
                     </div>
                 )}
-            </main>
+            </PageShell>
         </div>
     );
 }

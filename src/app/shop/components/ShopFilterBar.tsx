@@ -44,17 +44,19 @@ export default function ShopFilterBar({
     }, []);
 
     return (
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-[#161d2a] border border-slate-800 p-4 rounded-2xl shadow-xl">
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-abyss-800 border border-slate-800 p-4 rounded-2xl shadow-xl">
             {/* 카테고리 필터 버튼 탭 */}
             <div className="flex flex-wrap gap-1.5 w-full md:w-auto">
                 {['ALL', 'ARMOR', 'ARTIFACT', 'ITEM', 'WEAPON'].map((cat) => (
                     <button
                         key={cat}
+                        type="button"
+                        aria-pressed={selectedCategory === cat}
                         onClick={() => setSelectedCategory(cat)}
                         className={`text-xs px-3.5 py-2 rounded-xl font-bold transition tracking-wide ${
                             selectedCategory === cat
                                 ? 'bg-amber-400 text-slate-900'
-                                : 'bg-[#0f141c] text-slate-400 border border-slate-800 hover:text-white'
+                                : 'bg-abyss-900 text-slate-400 border border-slate-800 hover:text-white'
                         }`}
                     >
                         {cat === 'ALL' ? '전체보기' : cat}
@@ -69,7 +71,7 @@ export default function ShopFilterBar({
                     placeholder="아이템 이름, 설명, 판매자 검색..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full md:w-60 bg-[#0f141c] border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-amber-400 transition"
+                    className="w-full md:w-60 bg-abyss-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus-ring focus:border-amber-400 transition"
                 />
 
                 {/* ✨ 100% 커스텀 드롭다운 바 (글자가 길어졌으므로 min-w를 150px로 소폭 상향) */}
@@ -77,7 +79,7 @@ export default function ShopFilterBar({
                     <button
                         type="button"
                         onClick={() => setIsOpen(!isOpen)}
-                        className="bg-[#0f141c] border border-slate-800 text-slate-300 font-bold text-xs rounded-xl pl-4 pr-10 py-2.5 min-w-[150px] text-left focus:outline-none focus:border-amber-400 flex items-center justify-between transition cursor-pointer"
+                        className="bg-abyss-900 border border-slate-800 text-slate-300 font-bold text-xs rounded-xl pl-4 pr-10 py-2.5 min-w-[150px] text-left focus-ring focus:border-amber-400 flex items-center justify-between transition cursor-pointer"
                     >
                         <span>{SORT_OPTIONS[sortBy]}</span>
                         <svg
@@ -92,7 +94,7 @@ export default function ShopFilterBar({
 
                     {/* 🌊 부드러운 웹앱 감성의 다크 모드 옵션 레이어 */}
                     {isOpen && (
-                        <div className="absolute right-0 mt-2 w-[150px] bg-[#111622] border border-slate-800 rounded-xl shadow-2xl z-50 p-1.5 animate-fade-in">
+                        <div className="absolute right-0 mt-2 w-[150px] bg-abyss-950 border border-slate-800 rounded-xl shadow-2xl z-50 p-1.5 animate-fade-in">
                             {Object.entries(SORT_OPTIONS).map(([value, label]) => (
                                 <button
                                     key={value}
@@ -104,7 +106,7 @@ export default function ShopFilterBar({
                                     className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${
                                         sortBy === value
                                             ? 'bg-amber-400 text-slate-900 font-extrabold shadow-md'
-                                            : 'text-slate-400 hover:bg-[#161d2a] hover:text-white'
+                                            : 'text-slate-400 hover:bg-abyss-800 hover:text-white'
                                     }`}
                                 >
                                     {label}
