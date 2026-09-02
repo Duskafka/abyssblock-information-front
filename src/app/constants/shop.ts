@@ -39,7 +39,7 @@ export const AVAILABLE_SHOP_ITEMS: ShopItemConfig[] = [
     // ==========================================
     {
         id: 'blazing_shield',
-        koreanName: '화염의 방패',
+        koreanName: '타오르는 방패',
         imageSrc: '/shop/artifact/blazing_shield.png',
         category: 'ARTIFACT',
     },
@@ -77,6 +77,12 @@ export const AVAILABLE_SHOP_ITEMS: ShopItemConfig[] = [
         id: 'traitor_golden_tooth',
         koreanName: '배신자의 금니',
         imageSrc: '/shop/artifact/traitor_golden_tooth.png',
+        category: 'ARTIFACT',
+    },
+    {
+        id: 'warden_heart',
+        koreanName: '감시자의 심장',
+        imageSrc: '/shop/artifact/warden_heart.png',
         category: 'ARTIFACT',
     },
 

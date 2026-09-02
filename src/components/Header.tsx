@@ -64,6 +64,7 @@ export default function Header() {
     // 🕹️ 미니게임 및 도구 카테고리 활성화 판별 로직
     const isArtifactGameActive = pathname.startsWith('/games/artifact');
     const isCalculatorGameActive = pathname.startsWith('/games/calculator'); // 🛡️ 데미지 계산기 판별 추가
+    const isDamageGameActive = pathname.startsWith('/games/damage'); // ⚔️ 데미지 계산 시뮬레이터 판별 추가
     const isGameActive = pathname.startsWith('/games');
 
     const fetchUserProfile = async (userId: string) => {
@@ -239,7 +240,7 @@ export default function Header() {
                                     </button>
 
                                     {/* 🎁 미니게임 서브메뉴 박스 */}
-                                    <div className={`absolute left-0 mt-2 w-52 bg-abyss-800 border border-slate-800 rounded-xl shadow-2xl p-1.5 transition-all duration-200 origin-top z-50 ${
+                                    <div className={`absolute left-0 mt-2 w-60 bg-abyss-800 border border-slate-800 rounded-xl shadow-2xl p-1.5 transition-all duration-200 origin-top z-50 ${
                                         isGameDropdownOpen
                                             ? 'opacity-100 scale-100 visible translate-y-0'
                                             : 'opacity-0 scale-95 invisible -translate-y-2 pointer-events-none'
@@ -264,6 +265,18 @@ export default function Header() {
                                             }`}
                                         >
                                             🛡️ 데미지 감산 시뮬레이터
+                                        </Link>
+
+                                        {/* ⚔️ 공격 측 피해량을 계산하는 세 번째 슬롯 */}
+                                        <Link
+                                            href="/games/damage"
+                                            onClick={() => setIsGameDropdownOpen(false)}
+                                            className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
+                                                isDamageGameActive ? 'bg-amber-400/10 text-amber-400 font-bold' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                                            }`}
+                                        >
+                                            <span className="flex items-center gap-1.5">⚔️ 데미지 계산 시뮬레이터</span>
+                                            <span className="text-2xs bg-emerald-400/20 text-emerald-400 px-1 py-0.5 rounded font-bold">NEW</span>
                                         </Link>
                                     </div>
                                 </div>
@@ -488,6 +501,13 @@ export default function Header() {
                                     className={`${mobileSubBase} ${isCalculatorGameActive ? mobileRowActive : mobileRowIdle}`}
                                 >
                                     🛡️ 데미지 감산 시뮬레이터
+                                </Link>
+                                <Link
+                                    href="/games/damage"
+                                    className={`${mobileSubBase} ${isDamageGameActive ? mobileRowActive : mobileRowIdle}`}
+                                >
+                                    <span>⚔️ 데미지 계산 시뮬레이터</span>
+                                    <span className="text-2xs bg-emerald-400/20 text-emerald-400 px-1 py-0.5 rounded font-bold shrink-0">NEW</span>
                                 </Link>
                                 </div>
                             </div>

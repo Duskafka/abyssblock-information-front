@@ -17,13 +17,13 @@ export interface ArtifactConfig {
 export const UPGRADE_TARGET_ARTIFACTS: ArtifactConfig[] = [
     {
         id: 'blazing_shield',
-        koreanName: '타오르는의 방패',
+        koreanName: '타오르는 방패',
         imageSrc: '/shop/artifact/blazing_shield.png',
         category: 'ARTIFACT',
         mainOption: {
             name: '화염 장벽',
             renderDescription: (v) => `30 이상의 받는 데미지 물리 ${v} 감소`,
-            // 🔥 화염의 방패 고유 주옵션 수치 (예시: 0강 15% 시작, 강당 3%씩)
+            // 🔥 타오르는 방패 고유 주옵션 수치 (예시: 0강 15% 시작, 강당 3%씩)
             values: [1, 3, 5, 7, 10, 13, 16, 20, 25, 30]
         }
     },
@@ -93,6 +93,17 @@ export const UPGRADE_TARGET_ARTIFACTS: ArtifactConfig[] = [
             name: '끝없는 욕망',
             renderDescription: (v) => `6층 미만의 전리품 상자 추가 드롭 확률 ${v}% 증가`,
             values: [1, 2, 3, 4, 5, 7, 8, 10, 12, 15]
+        }
+    },
+    {
+        id: 'warden_heart',
+        koreanName: '감시자의 심장',
+        imageSrc: '/shop/artifact/warden_heart.png',
+        category: 'ARTIFACT',
+        mainOption: {
+            name: '마법 반향',
+            renderDescription: (v) => `적에게 피해를 입으면 10초간 그 적에게 입히는 피해 ${v}% 증가`,
+            values: [1, 6, 11, 19, 28, 39, 53, 71, 93, 120]
         }
     },
 ];
@@ -182,6 +193,59 @@ export const DAMAGE_CALC_ARTIFACTS: ArtifactConfig[] = [
             name: '수호의 물결',
             renderDescription: (v) => `받는 화염 피해 ${v} 감소`,
             values: [1.0, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0, 16.0, 22.0, 30.0]
+        }
+    }
+];
+
+// ==========================================
+// ⚔️ 데미지 계산 시뮬레이터(/games/damage)가 쓰는 아티펙트 테이블
+//
+// 주옵션이 "피해량 % 증가"인 아티펙트만 넣는다. 계산식 3단계에 합산된다.
+// 수치는 위 UPGRADE_TARGET_ARTIFACTS와 동일하게 유지한다.
+// ==========================================
+export const DAMAGE_BOOST_ARTIFACTS: ArtifactConfig[] = [
+    {
+        id: 'warden_heart',
+        koreanName: '감시자의 심장',
+        imageSrc: '/shop/artifact/warden_heart.png',
+        category: 'ARTIFACT',
+        mainOption: {
+            name: '마법 반향',
+            renderDescription: (v) => `적에게 피해를 입으면 10초간 그 적에게 입히는 피해 ${v}% 증가`,
+            values: [1, 6, 11, 19, 28, 39, 53, 71, 93, 120]
+        }
+    },
+    {
+        id: 'liberated_spirit',
+        koreanName: '해방된 영혼',
+        imageSrc: '/shop/artifact/liberated_spirit.png',
+        category: 'ARTIFACT',
+        mainOption: {
+            name: '망령의 복수',
+            renderDescription: (v) => `보스에게 입히는 모든 공격 피해량 ${v}% 증가`,
+            values: [1, 3, 7, 11, 16, 23, 32, 44, 60, 80]
+        }
+    },
+    {
+        id: 'relic_resonance_bell',
+        koreanName: '유물 공명의 종',
+        imageSrc: '/shop/artifact/relic_resonance_bell.png',
+        category: 'ARTIFACT',
+        mainOption: {
+            name: '과거의 영광',
+            renderDescription: (v) => `적에게 입히는 모든 피해 ${v}% 증가`,
+            values: [1, 3, 6, 9, 13, 17, 21, 27, 33, 40]
+        }
+    },
+    {
+        id: 'soul_skein',
+        koreanName: '영혼의 실타래',
+        imageSrc: '/shop/artifact/soul_skein.png',
+        category: 'ARTIFACT',
+        mainOption: {
+            name: '영혼 포획',
+            renderDescription: (v) => `전투 1분 경과마다 모든 공격 피해량 ${v}% 증가. 최대 5분`,
+            values: [2.0, 2.4, 2.8, 3.2, 3.8, 4.4, 5.2, 6, 7, 8]
         }
     }
 ];

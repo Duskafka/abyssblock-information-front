@@ -22,12 +22,18 @@ export default function ArtifactUpgradeGame() {
         'traitor_golden_tooth',     // 4. 금니
         'kings_insignia',          // 5. 국왕의휘장
         'relic_resonance_bell',     // 6. 유물종
-        'liberated_spirit'          // 7. 원혼
+        'liberated_spirit',         // 7. 원혼
+        'warden_heart'              // 8. 감시자의 심장
     ];
 
     // 지정된 순서 스펙대로 원본 상수를 재정렬한 리스트 생성
+    // 💡 SORT_ORDER에 아직 등록되지 않은 신규 아티펙트는 -1로 앞줄을 차지하지 않도록 맨 뒤로 보낸다.
+    const getSortRank = (id: string) => {
+        const rank = SORT_ORDER.indexOf(id);
+        return rank === -1 ? SORT_ORDER.length : rank;
+    };
     const sortedArtifacts = [...UPGRADE_TARGET_ARTIFACTS].sort((a, b) => {
-        return SORT_ORDER.indexOf(a.id) - SORT_ORDER.indexOf(b.id);
+        return getSortRank(a.id) - getSortRank(b.id);
     });
 
     // 1. 아티펙트 선택 상태 관리 (기본 시작 대상도 정렬 첫 번째인 '오아시스의 정수'로 세팅)
